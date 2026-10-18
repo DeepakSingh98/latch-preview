@@ -1,0 +1,28 @@
+{
+  "schema": "latch-site-evidence-v1",
+  "title": "Granite 3.0-1B-A400M port (experimental, numerically unqualified)",
+  "model": "ibm-granite/granite-3.0-1b-a400m-base @ d91cbed802d85eb1b32374623331f6ab2b37403a; 24 layers, width 1024, 32 experts top-8, vocab 49,152, tied readout",
+  "scope": "one H100, BF16 practical policy, sequence 4096, continuation from released weights, constant LR 1e-5; 3 alternating rounds",
+  "rows": [
+    {
+      "case": "1 x 4096 per update",
+      "latch_ms": 161.45,
+      "compiled_grouped_ms": 97.89,
+      "installed_transformers_ms": 1226.0,
+      "latch_over_compiled": 1.649
+    },
+    {
+      "case": "16 x 4096 per update (accumulation)",
+      "latch_ms": 2255.6,
+      "compiled_grouped_ms": 1304.9,
+      "installed_transformers_ms": 11759.7,
+      "latch_over_compiled": 1.729
+    }
+  ],
+  "correctness": "optimizer/clip formula, objective, routing, GA semantics and bitwise restart pass; gradient errors comparable to three valid BF16 implementations but frozen v1/v2 gradient gates not met (2 of 6 observations qualify)",
+  "build": "direct program end-to-end build 361 s (capture 105 s, native build 42 s) via interval units",
+  "why_slower": "deterministic 8x gather-backward scatter (~32 vs ~5 ms), ~1,194 barrier-separated glue intervals, slower long-sequence attention body",
+  "evidence_kind": "historical",
+  "v0_scope": "Historical source measurements; not new qualification of the integrated v0 runtime. Current checks are indexed in v0-qualification.json.",
+  "draft_note": "Public measurement summary. Internal source paths, worker IDs and receipt locations are omitted from this draft; the originals are retained privately."
+}

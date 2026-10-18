@@ -1,0 +1,135 @@
+{
+  "schema": "latch-v0-final-package-evidence-v1",
+  "package": "megakernel-lab==0.9.0rc1 (Latch v0 research preview, final package)",
+  "hardware": "one otherwise idle NVIDIA H100 80GB HBM3 per measurement set (GCP a3-highgpu-1g); builds on dedicated n2-highmem-64",
+  "software": "torch 2.9.1+cu128, transformers 4.55.4, CUDA 12.8",
+  "clock_note": "complete training update or complete adaptation block; excludes compilation and data loading; execution measurement, not time to quality",
+  "measurements": [
+    {
+      "id": "tinymoe-b2",
+      "workload": "TinyMoE-200M (FlameF0X/TinyMoE-200m-2x16 @9b209f74), 2 x 512 tokens, unchanged recipe, latch-tinymoe build --rules auto",
+      "kind": "complete training update",
+      "latch_ms": 12.5705,
+      "control": "compiled-grouped (fastest of installed/optimized/grouped/compiled-grouped screened on that host: 378.9/378.6/68.0/64.6 ms)",
+      "control_ms": 64.5224,
+      "ratio": 0.1948,
+      "samples": "5 alternating pairs x 16 updates per arm (80)",
+      "second_host": "12.56 vs 72.01 ms compiled-grouped (installed-wheel run, us-east5-a)",
+      "exactness": "32 updates bitwise equal to the v0 option set; repeat and update 15->32 restart bitwise; FP64 audits at updates 1 and 32 pass (policy 5bf7eb5d)"
+    },
+    {
+      "id": "tinymoe-recipe-q",
+      "workload": "TinyMoE-200M recipe Q, 32 x 1024 tokens, rules='auto' (package compiler, frozen LATCH-TINYMOE-BATCH-FRONTIER recipe harness)",
+      "kind": "complete training update",
+      "latch_ms": 79.927,
+      "control": "C32 compiled-grouped (1 x 32, chunk 8192)",
+      "control_ms": 139.195,
+      "frozen_latch_ms": 116.478,
+      "ratio": 0.5742,
+      "samples": "5 alternating rounds x 4 states x 64 updates",
+      "exactness": "bitwise vs the frozen L32 executor on fresh/mid/late/q; repeat; restart protocol; 512-update continuation"
+    },
+    {
+      "id": "selective-b2",
+      "workload": "TinyMoE selective update (experts accumulate 16 microbatches, shared weights every microbatch), 2 x 1024, C18 options; examples/selective_update",
+      "kind": "complete training, accumulate and apply programs",
+      "latch_ms": 10.283,
+      "latch_bench_ms": 10.122,
+      "control": "compiled-grouped A4 counterpart, same semantics, same GPU",
+      "control_ms": 66.454,
+      "ratio": 0.1547,
+      "exactness": "bitwise vs the frozen pre-rowchain pair on 4 states x 3 cycles; restart at 24; 512-microbatch continuation; conventional agreement from trained state M max |dloss| 0.00237",
+      "note": "frozen rule's slow-group beta1 bias correction is nonstandard (1-0.9^t with microbatch-equivalent t); losses diverge from the conventional counterpart from zero optimizer state"
+    },
+    {
+      "id": "selective-b1",
+      "workload": "B1-FAST c17 P1@B1 selective pair, 1 x 1024 (package compiler, frozen fast-weight-groups harness)",
+      "kind": "complete training, two programs",
+      "latch_ms": 8.72,
+      "control": "fast-weight-groups same-semantics compiled-grouped implementation, same GPU",
+      "control_ms": [
+        64.0,
+        64.7
+      ],
+      "ratio": 0.136,
+      "exactness": "bitwise vs the frozen reference on 4 states x 3 cycles; restart at 48; 512-microbatch continuation"
+    },
+    {
+      "id": "smelt-r2",
+      "workload": "SMELT-style looped TinyMoE (layers 3-8 visited twice, 1/r residual scale), 32 x 1024, rows+pcse",
+      "kind": "complete training update",
+      "latch_ms": 114.82,
+      "control": "compiled trunk + one CUDA graph (graph-owned gradients kept bound)",
+      "control_ms": 154.22,
+      "ratio": 0.7445,
+      "example": "B8 x 512: 25.6 vs 40.9 ms",
+      "exactness": "bitwise vs the donor program from fresh/q/L; repeat; restart"
+    },
+    {
+      "id": "gradlev-p1b",
+      "workload": "GradLev on GPT-2 small (openai-community/gpt2 @607a30d7), final MLP adapted, policy P1b, 1,024-token block",
+      "kind": "causal test-time adaptation of one MLP (not training)",
+      "latch_ms": 53.98,
+      "latch_trained_ms": 54.15,
+      "frozen_previous_kernel_ms": 75.18,
+      "control": "CUDA graph of the compiled step, inductor-reduction gradient (graph_gl32red)",
+      "control_ms": 189.53,
+      "ratio": 0.2848,
+      "external_operations": "block clock includes eager trunk prefill (7.5 ms median), staging, reset and read-back; loop alone 46.2 ms",
+      "kernels_per_block": {
+        "latch": 1,
+        "control": 18176
+      },
+      "exactness": "bitwise vs the frozen GRADLEV-LATCH kernel; repeat, carried 512+512 and 333+691, new-process restart, reset, short counts bitwise; 1,024 held-out test blocks identical (adapted 3.308258 pretrained, 3.167791 trained)"
+    },
+    {
+      "id": "gradlev-p1",
+      "workload": "GradLev, policy P1 (BF16-rounded softmax-gradient weights, two-pass head)",
+      "kind": "causal test-time adaptation of one MLP (not training)",
+      "latch_ms": 90.36,
+      "frozen_previous_kernel_ms": 97.25,
+      "control": "CUDA graph, hybrid head (graph_hybrid)",
+      "control_ms": 161.34,
+      "ratio": 0.5601,
+      "exactness": "bitwise vs the frozen P1 kernel; all state checks pass"
+    },
+    {
+      "id": "build-e2ttt",
+      "workload": "E2-TTT-MLP 4 layers, B1 x 8,192 build (LATCH-BUILD-600 probe), uninstrumented",
+      "kind": "compilation",
+      "previous_s": [
+        543.6,
+        546.8
+      ],
+      "this_release_s": [
+        282.6,
+        282.9
+      ],
+      "capture_s": 66,
+      "ratio": 0.52,
+      "exactness": "program.cu 57f135ee, manifest.json c5a7f65d, bindings and headers identical (16 files)"
+    },
+    {
+      "id": "build-tinymoe",
+      "workload": "packaged TinyMoE example build (whole command) and recipe Q build call",
+      "kind": "compilation",
+      "example_previous_s": 544.5,
+      "example_this_release_s": 283.1,
+      "recipe_q_previous_s": 463.3,
+      "recipe_q_this_release_s": 241.9,
+      "capture_previous_s": [
+        103.0,
+        104.3
+      ],
+      "capture_this_release_s": [
+        49.1,
+        49.9
+      ],
+      "exactness": "identical generated source and bindings"
+    }
+  ],
+  "slower_reference": {
+    "e2ttt_outer_training": "Latch 9.12 s (default build) vs torch.compile max-autotune 3.05 s per 64 x 2,048-token update; research branch, not packaged"
+  },
+  "draft_note": "Public measurement summary. Internal source paths, worker IDs and receipt locations are omitted from this draft; the originals are retained privately."
+}

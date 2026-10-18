@@ -1,0 +1,23 @@
+{
+  "schema": "latch-site-v0-qualification-index-v1",
+  "evidence_kind": "current_v0",
+  "scope": "Completed bounded validation of frozen runtime bytes. Documentation/site updates do not claim a fresh full training campaign; final artifact custody is recorded by the delivery manifest and qualification receipt.",
+  "runtime_validation_commit": "904596e7845b51323ca111e0e5e43c9616121054",
+  "runtime_content_sha256": "18874cabf93c5afabf619a96613ca5f9f4f685b2e0e7002bc2da7854a6b0f034",
+  "runtime_files": 382,
+  "publication_decisions": [
+    "Original-code license",
+    "Public repository URL"
+  ],
+  "limits": [
+    "Private moe4 runtime and CLI are not shipped; historical four-H100 evidence is not v0 qualification.",
+    "Learning machinery audits cover only its first two fresh updates, not update 128 or a learning advantage.",
+    "The original 131,072,000-token pilot and changed-schedule 1,048,576,000-token study remain separate. Direct original-schedule replication has no final result in the recorded intake.",
+    "Historical donor timing, qualification and learning evidence does not qualify changed runtime bytes."
+  ],
+  "study_classification": {
+    "sha256": "a5e8215c5ff05694063efbb50508651bc0a3c7628536a06778521ff93ae68d6b",
+    "scope": "Original 131M pilot, separate 1.048B changed-schedule longer study, direct replication of the original schedule and schedule-isolation follow-up remain distinct; no complete pair or direct-replication final result assessed at the recorded intake."
+  },
+  "draft_note": "Public measurement summary. Internal source paths, worker IDs and receipt locations are omitted from this draft; the originals are retained privately."
+}

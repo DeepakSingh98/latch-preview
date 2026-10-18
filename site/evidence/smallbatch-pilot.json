@@ -1,0 +1,1056 @@
+{
+  "schema": "latch-site-evidence-v1",
+  "title": "TinyMoE small-batch learning pilot (Latch B2 vs compiled conventional A)",
+  "status": "PILOT. Single seed 1729, original 131,072,000-token LR schedule; not a replicated learning result. The 1,048,576,000-token longer-horizon study changes the LR schedule and is not a direct replication. A separate direct original-schedule replication is running per the owner; no final follow-up results received at the recorded intake.",
+  "protocol": {
+    "model": "FlameF0X/TinyMoE-200m-2x16 @ 9b209f7439aadfac282e0bf44f2fda19771aba90, 199,837,056 parameters, random initialization",
+    "data": "FineWeb-Edu documents (pinned learning-scaling corpus document splits), TinyMoE tokenizer, 1024-token windows inside one document",
+    "objective": "mean next-token cross-entropy + 0.02 x HF Mixtral router load-balancing loss per forward pass",
+    "numerics": "FP32 master weights and Adam moments; BF16 projections, attention and expert matrix products; FP32 cross-entropy",
+    "optimizer": "AdamW beta1 0.9, eps 1e-6, global clip 1.0, decoupled decay on matrices; beta2 = 0.999^(B/128); weight decay matched per token",
+    "schedule": "5% linear warmup then cosine to zero over 131,072,000 tokens",
+    "arm_A": "compiled-grouped PyTorch (torch.compile regions + grouped expert GEMMs, fused AdamW), 16 x 8 x 1024 = 128 sequences per update via gradient accumulation",
+    "arm_B1": "Latch generated kernel, 1 x 1024 tokens per update, no accumulation",
+    "arm_B2": "Latch generated kernel, 2 x 1024 tokens per update, no accumulation",
+    "lr_calibration": "four peak-LR trials per arm at the full horizon; selected by final 2,048-window dev NLL; each arm's best was its highest tried LR",
+    "evaluation": "dev NLL on the first 256 dev windows (262,144 targets) every 4,194,304 tokens; installed Transformers evaluator; router term excluded",
+    "clock": "accumulated synchronized wall seconds of complete optimizer updates; excludes compilation, evaluation, checkpointing and host data loading",
+    "hardware": "single H100 80GB HBM3 (GCP a3-highgpu-1g) per run; selected A and B2 runs on different H100 VMs; same-GPU paired throughput measured separately"
+  },
+  "selected": {
+    "A": {
+      "lr": 0.0024,
+      "final_dev": 4.024635432753712
+    },
+    "B1": {
+      "lr": 0.000212,
+      "final_dev": 3.526114608219359
+    },
+    "B2": {
+      "lr": 0.0003,
+      "final_dev": 3.537644262862159
+    }
+  },
+  "all_trials": [
+    {
+      "arm": "A",
+      "lr": 0.0003,
+      "status": "completed",
+      "final_dev": 4.544612848840188,
+      "last_curve_dev": 4.6363302590325475,
+      "training_seconds": 1237.2138893810072,
+      "median_update_ms": 1235.9630855000887,
+      "tokens": 131072000
+    },
+    {
+      "arm": "A",
+      "lr": 0.0006,
+      "status": "completed",
+      "final_dev": 4.101915029634256,
+      "last_curve_dev": 4.185229564085603,
+      "training_seconds": 1233.0294675310138,
+      "median_update_ms": 1233.4272169998712,
+      "tokens": 131072000
+    },
+    {
+      "arm": "A",
+      "lr": 0.0012,
+      "status": "completed",
+      "final_dev": 4.050865845056251,
+      "last_curve_dev": 4.133102556224912,
+      "training_seconds": 1244.6744105819962,
+      "median_update_ms": 1243.937553500018,
+      "tokens": 131072000
+    },
+    {
+      "arm": "A",
+      "lr": 0.0024,
+      "status": "completed",
+      "final_dev": 4.024635432753712,
+      "last_curve_dev": 4.105994606390595,
+      "training_seconds": 1248.2360943119993,
+      "median_update_ms": 1249.7302904998833,
+      "tokens": 131072000
+    },
+    {
+      "arm": "B1",
+      "lr": 2.65e-05,
+      "status": "completed",
+      "final_dev": 4.0366646677139215,
+      "last_curve_dev": 4.119538976345211,
+      "training_seconds": 3958.819478681921,
+      "median_update_ms": 30.908876500006954,
+      "tokens": 131072000
+    },
+    {
+      "arm": "B1",
+      "lr": 5.3e-05,
+      "status": "completed",
+      "final_dev": 3.7310750503384043,
+      "last_curve_dev": 3.810418374836445,
+      "training_seconds": 3943.7485100169924,
+      "median_update_ms": 30.730853000022762,
+      "tokens": 131072000
+    },
+    {
+      "arm": "B1",
+      "lr": 0.000106,
+      "status": "completed",
+      "final_dev": 3.5770172564371023,
+      "last_curve_dev": 3.6496999002993107,
+      "training_seconds": 4059.055584350005,
+      "median_update_ms": 31.64990749996832,
+      "tokens": 131072000
+    },
+    {
+      "arm": "B1",
+      "lr": 0.000212,
+      "status": "completed",
+      "final_dev": 3.526114608219359,
+      "last_curve_dev": 3.595363672822714,
+      "training_seconds": 3993.956367166131,
+      "median_update_ms": 31.153130999882706,
+      "tokens": 131072000
+    },
+    {
+      "arm": "B2",
+      "lr": 3.75e-05,
+      "status": "completed",
+      "final_dev": 4.072829974989872,
+      "last_curve_dev": 4.156768256798387,
+      "training_seconds": 2336.207977240153,
+      "median_update_ms": 36.43739249991995,
+      "tokens": 131072000
+    },
+    {
+      "arm": "B2",
+      "lr": 7.5e-05,
+      "status": "completed",
+      "final_dev": 3.7288272408477496,
+      "last_curve_dev": 3.809337035752833,
+      "training_seconds": 2334.5902149080375,
+      "median_update_ms": 36.39485449912172,
+      "tokens": 131072000
+    },
+    {
+      "arm": "B2",
+      "lr": 0.00015,
+      "status": "completed",
+      "final_dev": 3.58674089203123,
+      "last_curve_dev": 3.660350825637579,
+      "training_seconds": 2271.0066268930477,
+      "median_update_ms": 35.35403350088018,
+      "tokens": 131072000
+    },
+    {
+      "arm": "B2",
+      "lr": 0.0003,
+      "status": "completed",
+      "final_dev": 3.537644262862159,
+      "last_curve_dev": 3.6084622661583126,
+      "training_seconds": 2295.9139547520012,
+      "median_update_ms": 35.79733250012396,
+      "tokens": 131072000
+    }
+  ],
+  "levels": [
+    4.612,
+    4.466,
+    4.34,
+    4.254,
+    4.187,
+    4.141,
+    4.116,
+    4.107
+  ],
+  "crossings": {
+    "A": {
+      "4.612": {
+        "tokens": 67108864,
+        "seconds": 638.8902021830072,
+        "tokens_lower": 62914560,
+        "seconds_lower": 598.8025372020056,
+        "nll": 4.61177340708673
+      },
+      "4.466": {
+        "tokens": 75497472,
+        "seconds": 719.3226675790056,
+        "tokens_lower": 71303168,
+        "seconds_lower": 679.2805085520076,
+        "nll": 4.465901464689523
+      },
+      "4.34": {
+        "tokens": 83886080,
+        "seconds": 799.4912716130029,
+        "tokens_lower": 79691776,
+        "seconds_lower": 759.3914304310047,
+        "nll": 4.339546544943005
+      },
+      "4.254": {
+        "tokens": 96468992,
+        "seconds": 919.508555745002,
+        "tokens_lower": 92274688,
+        "seconds_lower": 879.3199896260003,
+        "nll": 4.215660771355033
+      },
+      "4.187": {
+        "tokens": 100663296,
+        "seconds": 959.8072926270024,
+        "tokens_lower": 96468992,
+        "seconds_lower": 919.508555745002,
+        "nll": 4.186628740746528
+      },
+      "4.141": {
+        "tokens": 113246208,
+        "seconds": 1079.3797639499999,
+        "tokens_lower": 109051904,
+        "seconds_lower": 1039.3570283359986,
+        "nll": 4.126457985956222
+      },
+      "4.116": {
+        "tokens": 121634816,
+        "seconds": 1158.6705542970021,
+        "tokens_lower": 117440512,
+        "seconds_lower": 1119.0358500090024,
+        "nll": 4.10974476672709
+      },
+      "4.107": {
+        "tokens": 125829120,
+        "seconds": 1198.3324110229987,
+        "tokens_lower": 121634816,
+        "seconds_lower": 1158.6705542970021,
+        "nll": 4.10656619630754
+      }
+    },
+    "B1": {
+      "4.612": {
+        "tokens": 20971520,
+        "seconds": 640.0139035099924,
+        "tokens_lower": 16777216,
+        "seconds_lower": 511.76146725099915,
+        "nll": 4.510134443175048
+      },
+      "4.466": {
+        "tokens": 25165824,
+        "seconds": 768.1302089619924,
+        "tokens_lower": 20971520,
+        "seconds_lower": 640.0139035099924,
+        "nll": 4.370963111985475
+      },
+      "4.34": {
+        "tokens": 29360128,
+        "seconds": 896.3883098499957,
+        "tokens_lower": 25165824,
+        "seconds_lower": 768.1302089619924,
+        "nll": 4.260101906955242
+      },
+      "4.254": {
+        "tokens": 33554432,
+        "seconds": 1023.7165966549835,
+        "tokens_lower": 29360128,
+        "seconds_lower": 896.3883098499957,
+        "nll": 4.192048170603812
+      },
+      "4.187": {
+        "tokens": 37748736,
+        "seconds": 1151.2445021109927,
+        "tokens_lower": 33554432,
+        "seconds_lower": 1023.7165966549835,
+        "nll": 4.11955980444327
+      },
+      "4.141": {
+        "tokens": 37748736,
+        "seconds": 1151.2445021109927,
+        "tokens_lower": 33554432,
+        "seconds_lower": 1023.7165966549835,
+        "nll": 4.11955980444327
+      },
+      "4.116": {
+        "tokens": 41943040,
+        "seconds": 1278.7565487040076,
+        "tokens_lower": 37748736,
+        "seconds_lower": 1151.2445021109927,
+        "nll": 4.066023477818817
+      },
+      "4.107": {
+        "tokens": 41943040,
+        "seconds": 1278.7565487040076,
+        "tokens_lower": 37748736,
+        "seconds_lower": 1151.2445021109927,
+        "nll": 4.066023477818817
+      }
+    },
+    "B2": {
+      "4.612": {
+        "tokens": 20971520,
+        "seconds": 366.7007124619984,
+        "tokens_lower": 16777216,
+        "seconds_lower": 292.9707422179985,
+        "nll": 4.546429390553385
+      },
+      "4.466": {
+        "tokens": 25165824,
+        "seconds": 440.56722167099696,
+        "tokens_lower": 20971520,
+        "seconds_lower": 366.7007124619984,
+        "nll": 4.404035044834018
+      },
+      "4.34": {
+        "tokens": 29360128,
+        "seconds": 513.9596122979998,
+        "tokens_lower": 25165824,
+        "seconds_lower": 440.56722167099696,
+        "nll": 4.286650082562119
+      },
+      "4.254": {
+        "tokens": 33554432,
+        "seconds": 587.4516497220022,
+        "tokens_lower": 29360128,
+        "seconds_lower": 513.9596122979998,
+        "nll": 4.2069474956952035
+      },
+      "4.187": {
+        "tokens": 37748736,
+        "seconds": 660.7464379170037,
+        "tokens_lower": 33554432,
+        "seconds_lower": 587.4516497220022,
+        "nll": 4.131584444083273
+      },
+      "4.141": {
+        "tokens": 37748736,
+        "seconds": 660.7464379170037,
+        "tokens_lower": 33554432,
+        "seconds_lower": 587.4516497220022,
+        "nll": 4.131584444083273
+      },
+      "4.116": {
+        "tokens": 41943040,
+        "seconds": 734.4189164990025,
+        "tokens_lower": 37748736,
+        "seconds_lower": 660.7464379170037,
+        "nll": 4.074978020042181
+      },
+      "4.107": {
+        "tokens": 41943040,
+        "seconds": 734.4189164990025,
+        "tokens_lower": 37748736,
+        "seconds_lower": 660.7464379170037,
+        "nll": 4.074978020042181
+      }
+    }
+  },
+  "ratio_ranges_over_levels": {
+    "B1": {
+      "time_ratio_vs_A": [
+        1.002,
+        1.199
+      ],
+      "token_ratio_A_over_arm": [
+        2.667,
+        3.2
+      ]
+    },
+    "B2": {
+      "time_ratio_vs_A": [
+        0.574,
+        0.688
+      ],
+      "token_ratio_A_over_arm": [
+        2.667,
+        3.2
+      ]
+    }
+  },
+  "headline": {
+    "status": "Single-seed original-schedule pilot only; fixed dev NLL 4.187, 62.5% fewer tokens and approximately 31% less accumulated training-update time. No confirmed replication claim.",
+    "level_dev_nll_256_windows": 4.187,
+    "why_this_level": "Of A's eight second-half levels, this is where B2's token and time savings are smallest.",
+    "A_tokens": 100663296,
+    "B2_tokens": 37748736,
+    "token_reduction": 0.625,
+    "A_training_seconds": 959.81,
+    "B2_training_seconds": 660.75,
+    "time_reduction": 0.3116,
+    "resolution_lower_bounds": {
+      "A_tokens": 96468992,
+      "A_seconds": 919.51,
+      "B2_tokens": 33554432,
+      "B2_seconds": 587.45
+    },
+    "B2_nll_at_crossing": 4.1316
+  },
+  "same_gpu_paired_throughput": {
+    "A": [
+      {
+        "round": "round0",
+        "median_update_ms": 1215.6154,
+        "tokens_per_training_second": 107803.4
+      },
+      {
+        "round": "round1",
+        "median_update_ms": 1215.135,
+        "tokens_per_training_second": 107927.5
+      },
+      {
+        "round": "round2",
+        "median_update_ms": 1221.0077,
+        "tokens_per_training_second": 107108.0
+      }
+    ],
+    "B1": [
+      {
+        "round": "round0",
+        "median_update_ms": 30.2981,
+        "tokens_per_training_second": 33717.2
+      },
+      {
+        "round": "round1",
+        "median_update_ms": 30.1924,
+        "tokens_per_training_second": 33840.7
+      },
+      {
+        "round": "round2",
+        "median_update_ms": 30.292,
+        "tokens_per_training_second": 33729.6
+      }
+    ],
+    "B2": [
+      {
+        "round": "round0",
+        "median_update_ms": 35.387,
+        "tokens_per_training_second": 57634.8
+      },
+      {
+        "round": "round1",
+        "median_update_ms": 35.4317,
+        "tokens_per_training_second": 57600.5
+      },
+      {
+        "round": "round2",
+        "median_update_ms": 35.3277,
+        "tokens_per_training_second": 57781.4
+      }
+    ]
+  },
+  "curves_selected_runs": {
+    "A": [
+      {
+        "tokens": 0,
+        "training_seconds": 0.0,
+        "dev_nll": 10.42425,
+        "windows": 256
+      },
+      {
+        "tokens": 4194304,
+        "training_seconds": 39.119,
+        "dev_nll": 8.20936,
+        "windows": 256
+      },
+      {
+        "tokens": 8388608,
+        "training_seconds": 77.914,
+        "dev_nll": 6.69752,
+        "windows": 256
+      },
+      {
+        "tokens": 12582912,
+        "training_seconds": 117.868,
+        "dev_nll": 6.33872,
+        "windows": 256
+      },
+      {
+        "tokens": 16777216,
+        "training_seconds": 158.043,
+        "dev_nll": 6.13434,
+        "windows": 256
+      },
+      {
+        "tokens": 20971520,
+        "training_seconds": 197.887,
+        "dev_nll": 5.97315,
+        "windows": 256
+      },
+      {
+        "tokens": 25165824,
+        "training_seconds": 237.579,
+        "dev_nll": 5.80997,
+        "windows": 256
+      },
+      {
+        "tokens": 29360128,
+        "training_seconds": 277.315,
+        "dev_nll": 5.60039,
+        "windows": 256
+      },
+      {
+        "tokens": 33554432,
+        "training_seconds": 317.153,
+        "dev_nll": 5.42892,
+        "windows": 256
+      },
+      {
+        "tokens": 37748736,
+        "training_seconds": 357.109,
+        "dev_nll": 5.3035,
+        "windows": 256
+      },
+      {
+        "tokens": 41943040,
+        "training_seconds": 397.799,
+        "dev_nll": 5.16833,
+        "windows": 256
+      },
+      {
+        "tokens": 46137344,
+        "training_seconds": 438.04,
+        "dev_nll": 5.05706,
+        "windows": 256
+      },
+      {
+        "tokens": 50331648,
+        "training_seconds": 478.333,
+        "dev_nll": 4.95249,
+        "windows": 256
+      },
+      {
+        "tokens": 54525952,
+        "training_seconds": 518.682,
+        "dev_nll": 4.85662,
+        "windows": 256
+      },
+      {
+        "tokens": 58720256,
+        "training_seconds": 558.831,
+        "dev_nll": 4.76404,
+        "windows": 256
+      },
+      {
+        "tokens": 62914560,
+        "training_seconds": 598.803,
+        "dev_nll": 4.69406,
+        "windows": 256
+      },
+      {
+        "tokens": 67108864,
+        "training_seconds": 638.89,
+        "dev_nll": 4.61177,
+        "windows": 256
+      },
+      {
+        "tokens": 71303168,
+        "training_seconds": 679.281,
+        "dev_nll": 4.5415,
+        "windows": 256
+      },
+      {
+        "tokens": 75497472,
+        "training_seconds": 719.323,
+        "dev_nll": 4.4659,
+        "windows": 256
+      },
+      {
+        "tokens": 79691776,
+        "training_seconds": 759.391,
+        "dev_nll": 4.4013,
+        "windows": 256
+      },
+      {
+        "tokens": 83886080,
+        "training_seconds": 799.491,
+        "dev_nll": 4.33955,
+        "windows": 256
+      },
+      {
+        "tokens": 88080384,
+        "training_seconds": 839.324,
+        "dev_nll": 4.29401,
+        "windows": 256
+      },
+      {
+        "tokens": 92274688,
+        "training_seconds": 879.32,
+        "dev_nll": 4.25426,
+        "windows": 256
+      },
+      {
+        "tokens": 96468992,
+        "training_seconds": 919.509,
+        "dev_nll": 4.21566,
+        "windows": 256
+      },
+      {
+        "tokens": 100663296,
+        "training_seconds": 959.807,
+        "dev_nll": 4.18663,
+        "windows": 256
+      },
+      {
+        "tokens": 104857600,
+        "training_seconds": 999.867,
+        "dev_nll": 4.16236,
+        "windows": 256
+      },
+      {
+        "tokens": 109051904,
+        "training_seconds": 1039.357,
+        "dev_nll": 4.14113,
+        "windows": 256
+      },
+      {
+        "tokens": 113246208,
+        "training_seconds": 1079.38,
+        "dev_nll": 4.12646,
+        "windows": 256
+      },
+      {
+        "tokens": 117440512,
+        "training_seconds": 1119.036,
+        "dev_nll": 4.11616,
+        "windows": 256
+      },
+      {
+        "tokens": 121634816,
+        "training_seconds": 1158.671,
+        "dev_nll": 4.10974,
+        "windows": 256
+      },
+      {
+        "tokens": 125829120,
+        "training_seconds": 1198.332,
+        "dev_nll": 4.10657,
+        "windows": 256
+      },
+      {
+        "tokens": 130023424,
+        "training_seconds": 1238.261,
+        "dev_nll": 4.10599,
+        "windows": 256
+      },
+      {
+        "tokens": 131072000,
+        "training_seconds": 1248.236,
+        "dev_nll": 4.02464,
+        "windows": 2048
+      }
+    ],
+    "B1": [
+      {
+        "tokens": 0,
+        "training_seconds": 0.0,
+        "dev_nll": 10.42425,
+        "windows": 256
+      },
+      {
+        "tokens": 4194304,
+        "training_seconds": 126.888,
+        "dev_nll": 5.99183,
+        "windows": 256
+      },
+      {
+        "tokens": 8388608,
+        "training_seconds": 255.712,
+        "dev_nll": 5.34162,
+        "windows": 256
+      },
+      {
+        "tokens": 12582912,
+        "training_seconds": 383.304,
+        "dev_nll": 4.97384,
+        "windows": 256
+      },
+      {
+        "tokens": 16777216,
+        "training_seconds": 511.761,
+        "dev_nll": 4.72229,
+        "windows": 256
+      },
+      {
+        "tokens": 20971520,
+        "training_seconds": 640.014,
+        "dev_nll": 4.51013,
+        "windows": 256
+      },
+      {
+        "tokens": 25165824,
+        "training_seconds": 768.13,
+        "dev_nll": 4.37096,
+        "windows": 256
+      },
+      {
+        "tokens": 29360128,
+        "training_seconds": 896.388,
+        "dev_nll": 4.2601,
+        "windows": 256
+      },
+      {
+        "tokens": 33554432,
+        "training_seconds": 1023.717,
+        "dev_nll": 4.19205,
+        "windows": 256
+      },
+      {
+        "tokens": 37748736,
+        "training_seconds": 1151.245,
+        "dev_nll": 4.11956,
+        "windows": 256
+      },
+      {
+        "tokens": 41943040,
+        "training_seconds": 1278.757,
+        "dev_nll": 4.06602,
+        "windows": 256
+      },
+      {
+        "tokens": 46137344,
+        "training_seconds": 1405.673,
+        "dev_nll": 4.01149,
+        "windows": 256
+      },
+      {
+        "tokens": 50331648,
+        "training_seconds": 1533.097,
+        "dev_nll": 3.96518,
+        "windows": 256
+      },
+      {
+        "tokens": 54525952,
+        "training_seconds": 1660.625,
+        "dev_nll": 3.92462,
+        "windows": 256
+      },
+      {
+        "tokens": 58720256,
+        "training_seconds": 1788.177,
+        "dev_nll": 3.88247,
+        "windows": 256
+      },
+      {
+        "tokens": 62914560,
+        "training_seconds": 1915.77,
+        "dev_nll": 3.8488,
+        "windows": 256
+      },
+      {
+        "tokens": 67108864,
+        "training_seconds": 2043.523,
+        "dev_nll": 3.81975,
+        "windows": 256
+      },
+      {
+        "tokens": 71303168,
+        "training_seconds": 2170.961,
+        "dev_nll": 3.78683,
+        "windows": 256
+      },
+      {
+        "tokens": 75497472,
+        "training_seconds": 2298.414,
+        "dev_nll": 3.75829,
+        "windows": 256
+      },
+      {
+        "tokens": 79691776,
+        "training_seconds": 2426.034,
+        "dev_nll": 3.73323,
+        "windows": 256
+      },
+      {
+        "tokens": 83886080,
+        "training_seconds": 2553.59,
+        "dev_nll": 3.70649,
+        "windows": 256
+      },
+      {
+        "tokens": 88080384,
+        "training_seconds": 2681.069,
+        "dev_nll": 3.68549,
+        "windows": 256
+      },
+      {
+        "tokens": 92274688,
+        "training_seconds": 2808.915,
+        "dev_nll": 3.67099,
+        "windows": 256
+      },
+      {
+        "tokens": 96468992,
+        "training_seconds": 2937.334,
+        "dev_nll": 3.6518,
+        "windows": 256
+      },
+      {
+        "tokens": 100663296,
+        "training_seconds": 3065.381,
+        "dev_nll": 3.63484,
+        "windows": 256
+      },
+      {
+        "tokens": 104857600,
+        "training_seconds": 3193.652,
+        "dev_nll": 3.62379,
+        "windows": 256
+      },
+      {
+        "tokens": 109051904,
+        "training_seconds": 3321.605,
+        "dev_nll": 3.61302,
+        "windows": 256
+      },
+      {
+        "tokens": 113246208,
+        "training_seconds": 3449.86,
+        "dev_nll": 3.60633,
+        "windows": 256
+      },
+      {
+        "tokens": 117440512,
+        "training_seconds": 3577.728,
+        "dev_nll": 3.60047,
+        "windows": 256
+      },
+      {
+        "tokens": 121634816,
+        "training_seconds": 3705.672,
+        "dev_nll": 3.59725,
+        "windows": 256
+      },
+      {
+        "tokens": 125829120,
+        "training_seconds": 3833.655,
+        "dev_nll": 3.59569,
+        "windows": 256
+      },
+      {
+        "tokens": 130023424,
+        "training_seconds": 3961.748,
+        "dev_nll": 3.59536,
+        "windows": 256
+      },
+      {
+        "tokens": 131072000,
+        "training_seconds": 3993.956,
+        "dev_nll": 3.52611,
+        "windows": 2048
+      }
+    ],
+    "B2": [
+      {
+        "tokens": 0,
+        "training_seconds": 0.0,
+        "dev_nll": 10.42425,
+        "windows": 256
+      },
+      {
+        "tokens": 4194304,
+        "training_seconds": 72.998,
+        "dev_nll": 6.03174,
+        "windows": 256
+      },
+      {
+        "tokens": 8388608,
+        "training_seconds": 146.189,
+        "dev_nll": 5.3887,
+        "windows": 256
+      },
+      {
+        "tokens": 12582912,
+        "training_seconds": 219.542,
+        "dev_nll": 5.00666,
+        "windows": 256
+      },
+      {
+        "tokens": 16777216,
+        "training_seconds": 292.971,
+        "dev_nll": 4.77008,
+        "windows": 256
+      },
+      {
+        "tokens": 20971520,
+        "training_seconds": 366.701,
+        "dev_nll": 4.54643,
+        "windows": 256
+      },
+      {
+        "tokens": 25165824,
+        "training_seconds": 440.567,
+        "dev_nll": 4.40404,
+        "windows": 256
+      },
+      {
+        "tokens": 29360128,
+        "training_seconds": 513.96,
+        "dev_nll": 4.28665,
+        "windows": 256
+      },
+      {
+        "tokens": 33554432,
+        "training_seconds": 587.452,
+        "dev_nll": 4.20695,
+        "windows": 256
+      },
+      {
+        "tokens": 37748736,
+        "training_seconds": 660.746,
+        "dev_nll": 4.13158,
+        "windows": 256
+      },
+      {
+        "tokens": 41943040,
+        "training_seconds": 734.419,
+        "dev_nll": 4.07498,
+        "windows": 256
+      },
+      {
+        "tokens": 46137344,
+        "training_seconds": 808.064,
+        "dev_nll": 4.02216,
+        "windows": 256
+      },
+      {
+        "tokens": 50331648,
+        "training_seconds": 881.902,
+        "dev_nll": 3.97618,
+        "windows": 256
+      },
+      {
+        "tokens": 54525952,
+        "training_seconds": 955.698,
+        "dev_nll": 3.93452,
+        "windows": 256
+      },
+      {
+        "tokens": 58720256,
+        "training_seconds": 1029.351,
+        "dev_nll": 3.89544,
+        "windows": 256
+      },
+      {
+        "tokens": 62914560,
+        "training_seconds": 1103.018,
+        "dev_nll": 3.86483,
+        "windows": 256
+      },
+      {
+        "tokens": 67108864,
+        "training_seconds": 1176.669,
+        "dev_nll": 3.83147,
+        "windows": 256
+      },
+      {
+        "tokens": 71303168,
+        "training_seconds": 1250.4,
+        "dev_nll": 3.80051,
+        "windows": 256
+      },
+      {
+        "tokens": 75497472,
+        "training_seconds": 1323.705,
+        "dev_nll": 3.77274,
+        "windows": 256
+      },
+      {
+        "tokens": 79691776,
+        "training_seconds": 1397.22,
+        "dev_nll": 3.74743,
+        "windows": 256
+      },
+      {
+        "tokens": 83886080,
+        "training_seconds": 1470.692,
+        "dev_nll": 3.72151,
+        "windows": 256
+      },
+      {
+        "tokens": 88080384,
+        "training_seconds": 1543.825,
+        "dev_nll": 3.70144,
+        "windows": 256
+      },
+      {
+        "tokens": 92274688,
+        "training_seconds": 1617.273,
+        "dev_nll": 3.68428,
+        "windows": 256
+      },
+      {
+        "tokens": 96468992,
+        "training_seconds": 1690.477,
+        "dev_nll": 3.66504,
+        "windows": 256
+      },
+      {
+        "tokens": 100663296,
+        "training_seconds": 1763.762,
+        "dev_nll": 3.65,
+        "windows": 256
+      },
+      {
+        "tokens": 104857600,
+        "training_seconds": 1837.065,
+        "dev_nll": 3.6387,
+        "windows": 256
+      },
+      {
+        "tokens": 109051904,
+        "training_seconds": 1910.75,
+        "dev_nll": 3.62733,
+        "windows": 256
+      },
+      {
+        "tokens": 113246208,
+        "training_seconds": 1983.933,
+        "dev_nll": 3.61982,
+        "windows": 256
+      },
+      {
+        "tokens": 117440512,
+        "training_seconds": 2057.47,
+        "dev_nll": 3.61404,
+        "windows": 256
+      },
+      {
+        "tokens": 121634816,
+        "training_seconds": 2131.013,
+        "dev_nll": 3.61046,
+        "windows": 256
+      },
+      {
+        "tokens": 125829120,
+        "training_seconds": 2204.345,
+        "dev_nll": 3.60871,
+        "windows": 256
+      },
+      {
+        "tokens": 130023424,
+        "training_seconds": 2277.445,
+        "dev_nll": 3.60846,
+        "windows": 256
+      },
+      {
+        "tokens": 131072000,
+        "training_seconds": 2295.914,
+        "dev_nll": 3.53764,
+        "windows": 2048
+      }
+    ]
+  },
+  "evidence_kind": "historical",
+  "v0_scope": "Historical source measurements; not new qualification of the integrated v0 runtime. Current checks are indexed in v0-qualification.json.",
+  "study_classification": {
+    "pilot_horizon_tokens": 131072000,
+    "longer_study_horizon_tokens": 1048576000,
+    "longer_study_is_direct_replication": false,
+    "reason": "The warmup and cosine decay depend on the token horizon, so the longer horizon changes the LR schedule even at the same token count.",
+    "direct_original_schedule_replication": "Running per owner; no final follow-up result received at recorded intake.",
+    "current_intake": "../../docs/v0/LEARNING.md"
+  },
+  "follow_up_update_2026_10_17": {
+    "status": "Follow-ups finished; they do not confirm small-batch Latch as a time-to-quality advantage. Earlier status fields are the record at the v0 intake.",
+    "same_schedule_fresh_seeds_1730_1732": "Latch reached pilot levels in 0.45-0.70x the conventional time where both arms reached them; at 4.187 only seed 1732 has a ratio (0.70x)",
+    "schedule_only_change_same_seeds": "reversed: 1.08-1.68x at every pilot level on 4/4 seeds",
+    "longer_study_1p05B_three_seeds": "conventional reached all eight targets first; at 3.30 Latch needed 1.62-1.79x the time with 1.1-1.3x fewer tokens",
+    "independently_tuned_schedules_seeds_1733_1735": "conventional reached every target first; Latch 1.27-1.45x the time to 3.50 and 1.47-1.59x to 3.30, or did not reach it",
+    "pilot_control": "about 2.2x slower per token than the strongest batch-128 PyTorch measured later (C128)"
+  },
+  "draft_note": "Public measurement summary. Internal source paths, worker IDs and receipt locations are omitted from this draft; the originals are retained privately."
+}

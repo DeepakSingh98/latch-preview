@@ -1,0 +1,52 @@
+{
+  "schema": "latch-site-evidence-v1",
+  "title": "TinyMoE generation + compilation time (capture, lowering, native CUDA build)",
+  "builds": [
+    {
+      "program": "TinyMoE B1S1024 small-batch (used in the pilot)",
+      "end_to_end_seconds": 738.3,
+      "capture_seconds": 101.6,
+      "lowering_and_preparation_seconds": 636.5,
+      "native_build_seconds": 23.6,
+      "worker": "CPU-only GCP n2-highmem-64 (no GPU)"
+    },
+    {
+      "program": "TinyMoE B2S1024 small-batch (used in the pilot)",
+      "end_to_end_seconds": 784.1,
+      "capture_seconds": 103.8,
+      "lowering_and_preparation_seconds": 680.1,
+      "native_build_seconds": 25.6,
+      "worker": "CPU-only GCP n2-highmem-64 (no GPU)"
+    },
+    {
+      "program": "TinyMoE B1S256 unchanged (and supervision/EMA variants)",
+      "end_to_end_seconds": 868,
+      "range_over_variants_seconds": [
+        813,
+        901
+      ],
+      "capture_seconds": 124,
+      "lowering_and_preparation_seconds": 705,
+      "native_build_seconds": 35.1,
+      "before_interval_units": "native build never completed: 1-3 h then ptxas timeout or ~223 GiB OOM; first successful monolithic O3 compile 10,692 s",
+      "interval_units": {
+        "device_units": 16,
+        "native_build_seconds": 26.4,
+        "cached_native_build_seconds": 13.2,
+        "whole_program_single_unit_native_build_seconds": 2336,
+        "equivalence": "relocatable vs whole-program: 1.032x update time, bitwise-equal checkpoints"
+      },
+      "worker": "CPU-only GCP n2-highmem-64 (no GPU)"
+    },
+    {
+      "program": "TinyMoE B8S1024 gradient-accumulation program",
+      "end_to_end_seconds": 1218,
+      "capture_seconds": 118,
+      "captured_operations": 32010,
+      "worker": "CPU-only, 64 vCPU"
+    }
+  ],
+  "evidence_kind": "historical",
+  "v0_scope": "Historical source measurements; not new qualification of the integrated v0 runtime. Current checks are indexed in v0-qualification.json.",
+  "draft_note": "Public measurement summary. Internal source paths, worker IDs and receipt locations are omitted from this draft; the originals are retained privately."
+}

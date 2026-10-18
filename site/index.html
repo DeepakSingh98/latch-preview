@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Latch — a compiler for training megakernels</title>
+<meta name="description" content="Latch is a compiler for generating training megakernels on NVIDIA H100 GPUs. Research preview, final v0 package megakernel-lab 0.9.0rc1.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/site.css?v=draft1">
+<script src="assets/config.js" defer></script>
+</head>
+<body>
+<div class="draft-banner"><div class="wrap">Draft for feedback · The compiler release is not yet public.</div></div>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="./">Latch <span>research preview</span></a>
+    <nav aria-label="Main">
+      <ul>
+        <li><a href="walkthrough.html">How it works</a></li>
+        <li><a href="get-started.html">Try Latch</a></li>
+        <li><a href="capabilities.html">Workloads</a></li>
+        <li><a href="methodology.html">Methodology</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <article class="wrap">
+    <div class="article">
+      <p class="meta"><span>Research preview</span><span>October 2026</span></p>
+      <h1>A compiler for training megakernels</h1>
+
+      <p class="lede">Latch is a compiler for generating training megakernels on NVIDIA H100 GPUs. We’re building it to make alternative architectures and learning algorithms easier to explore when systems engineering and execution costs would otherwise put them out of reach.</p>
+
+      <p>A training megakernel is a single generated GPU program that computes a model’s predictions, its loss, the gradients and the weight update. Latch is a research preview. We intend to release it as open source; the code is not yet public.</p>
+
+      <h2 id="why">Why start with fine-grained computation</h2>
+
+      <p>Deep learning software is built for large, regular work: big matrix products over big batches. Some learning procedures instead divide the computation into many small pieces, or make frequent updates that each depend on the one before. On a GPU each small piece usually runs as a separate kernel. When the pieces are small, starting kernels and moving intermediate results through memory can cost more than the arithmetic. A procedure can then be cheap to compute and still slow to run, and so expensive to study.</p>
+
+      <p>Generating one program for the whole update removes much of that overhead. It does not remove the arithmetic, and it does not make every workload faster. We began with two directions in which the overhead is large:</p>
+
+      <ul class="directions">
+        <li><strong>Mixture-of-experts models</strong>, especially those with many small experts. Each token is sent to a few experts, so every update consists of many small matrix products whose sizes are uneven and change from one update to the next.</li>
+        <li><strong>Test-time learning</strong>, in which a model changes its internal state or weights as data arrives. Prediction and update alternate, one small step at a time.</li>
+      </ul>
+
+      <p>These are starting points, not the limits of the project, and not every model of either kind will benefit.</p>
+
+      <h2 id="tinymoe">A complete example: TinyMoE</h2>
+
+      <p>TinyMoE-200M is a public mixture-of-experts language model with sixteen experts in each layer. To support it, we added token routing, uneven expert matrix products and their gradients to Latch, and changed how it handles attention and builds large programs (<a href="walkthrough.html#megakernel">details</a>). Latch then generated TinyMoE’s complete training megakernel: forward pass, loss, backward pass, gradient clipping and the AdamW update, in one program. Latch does not yet compile arbitrary models from Hugging Face; each new architecture needs similar work.</p>
+
+      <figure class="result" aria-labelledby="r1-title r1-cap">
+        <div class="result-panel">
+          <p class="result-title" id="r1-title">5.1× faster training updates</p>
+          <div class="bars" role="img" aria-label="Time for one complete TinyMoE-200M training update: Latch 12.57 milliseconds; compiled PyTorch 64.52 milliseconds.">
+            <div class="bar latch"><span class="lab">Latch</span><span class="track"><span class="fill" style="width:19.48%"></span></span><span class="val">12.57 ms</span></div>
+            <div class="bar"><span class="lab">Compiled PyTorch</span><span class="track"><span class="fill" style="width:100%"></span></span><span class="val">64.52 ms</span></div>
+          </div>
+        </div>
+        <figcaption id="r1-cap">TinyMoE-200M, one complete training update of 2 sequences × 512 tokens, on the same H100. The comparison is the fastest of four PyTorch implementations we tested: <code>torch.compile</code> per layer with grouped expert products, without CUDA graphs. Medians of 80 updates each; compilation excluded. Final package <code>megakernel-lab 0.9.0rc1</code>. <a href="methodology.html#case-tinymoe">Methodology</a>.</figcaption>
+      </figure>
+
+      <p>Faster updates matter only if they shorten training, and that is a separate question. In an earlier experiment, using a previous version of Latch, we trained TinyMoE from random initialization on FineWeb-Edu. Latch, updating on 32 sequences of 1,024 tokens at a time, reached validation loss 3.30 with 18–24% less accumulated update time than the fastest PyTorch implementation we measured of the original 128-sequence batch.</p>
+
+      <p class="aside">Three paired seeds: 1,428–1,468 s for Latch against 1,751–1,915 s for PyTorch, each with its own tuned learning rate. These runs predate the 12.57 ms kernel above and do not include its speed. PyTorch at Latch’s batch size is compared on the <a href="methodology.html#learning">learning page</a>.</p>
+
+      <h2 id="test-time-learning">Test-time learning</h2>
+
+      <p>In test-time learning a model keeps learning while it reads: for each token it makes a prediction, measures the error and updates some of its weights before reading the next. The steps are small and strictly ordered, so a conventional implementation spends much of its time starting kernels. Even replayed from a CUDA graph, one 1,024-token block issues 18,176 of them.</p>
+
+      <p>The packaged GradLev example adapts the final MLP of GPT-2 small over a 1,024-token block. Latch runs the whole loop of 1,024 dependent predict-and-update steps as one generated kernel and keeps the adapted weights in on-chip memory throughout. The rest of GPT-2 runs as ordinary PyTorch before the loop.</p>
+
+      <figure class="result" aria-labelledby="r2-title r2-cap">
+        <div class="result-panel">
+          <p class="result-title" id="r2-title">3.5× faster test-time adaptation</p>
+          <div class="bars" role="img" aria-label="Time for one complete 1,024-token GradLev adaptation block: Latch 53.98 milliseconds; compiled PyTorch replayed from a CUDA graph 189.53 milliseconds.">
+            <div class="bar latch"><span class="lab">Latch</span><span class="track"><span class="fill" style="width:28.48%"></span></span><span class="val">53.98 ms</span></div>
+            <div class="bar"><span class="lab">PyTorch, CUDA graph</span><span class="track"><span class="fill" style="width:100%"></span></span><span class="val">189.53 ms</span></div>
+          </div>
+        </div>
+        <figcaption id="r2-cap">One complete GradLev block on GPT-2 small, on the same H100: GPT-2’s ordinary forward pass (7.5 ms), staging, the 1,024-step adaptation loop and read-back. The comparison replays a step compiled with <code>torch.compile</code> from a CUDA graph. Adaptation of one MLP, not training. Medians of 80 blocks each. <a href="methodology.html#case-gradlev">Methodology</a>.</figcaption>
+      </figure>
+
+      <p>Support for test-time training beyond examples like this one is still at an early stage.</p>
+
+      <h2 id="next">Where to go next</h2>
+
+      <ul class="next-links">
+        <li><a href="walkthrough.html">How Latch works</a><span>A visual walkthrough, from one training update to a generated GPU program.</span></li>
+        <li><a href="get-started.html">Try Latch</a><span>Tested installation and examples.</span></li>
+        <li><a href="capabilities.html">Supported workloads and open problems</a><span>What runs, what is slower, and what does not run yet.</span></li>
+        <li><b class="pending-name" data-repo-pending>Source repository</b><a data-repo-link hidden aria-disabled="true" href="get-started.html">Source repository</a><span>The code, once it is released; the link will appear here.</span></li>
+      </ul>
+
+      <p>We are most interested in fine-grained experts, models with internal memory and learning rules built on frequent small updates, and we welcome other ideas.</p>
+    </div>
+  </article>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>Latch research preview</span>
+    <a href="methodology.html">Methodology</a>
+    <a href="sources.html">Sources for every number</a>
+    <a href="https://github.com/DeepakSingh98/latch-preview">Draft site source</a>
+    <a data-repo-link hidden aria-disabled="true" href="get-started.html">Repository</a>
+  </div>
+</footer>
+</body>
+</html>
