@@ -1,3 +1,5 @@
-# Latch public draft site
+# Latch website
 
-Static HTML, CSS, JavaScript and measurement summaries. Serve the repository root and open `/site/`. Internal release manifests and private research records are not published here; see `draft-notes.html` for document availability. The compiler package remains unpublished.
+Research preview — code coming soon.
+
+Static HTML, CSS and JavaScript. The website includes measurement summaries; it does not include the private compiler or training artifacts.

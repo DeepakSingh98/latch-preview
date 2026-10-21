@@ -79,7 +79,7 @@
       setText("yn", fmt(v.y));
       setText("Ln", fmt(v.L));
       setText("dir", v.L < 0.125 ? "down" : "up");
-      setText("verdict", v.L < 0.125 ? "One update made the prediction better." : "The step was too large: the weights moved past the values that reduce the loss, and the loss went up.");
+      setText("verdict", v.L < 0.125 ? "One update made the prediction better." : "The step was too large. The loss rose.");
       // weights show their updated values from step 9; forward values refresh at step 10
       setText("w1", i >= 8 ? fmt(v.w1) : "0.5");
       setText("w2", i >= 8 ? fmt(v.w2) : "1.5");
@@ -146,16 +146,16 @@
     var view = "fuse-kernels", hl = "none";
     var text = {
       "fuse-kernels": {
-        none: "Seven kernels, one after another. Each starts after the previous one has finished on every SM.",
-        sync: "Six kernel boundaries. Each kernel ends only when its slowest SM is done; the next one then has to start up.",
+        none: "Seven kernels run in sequence. Each starts after the previous kernel has finished on every SM.",
+        sync: "There are six kernel boundaries. Each kernel waits for its slowest SM to finish before the next kernel starts.",
         mem: "Every intermediate goes out to GPU memory and comes back for the next kernel.",
-        arith: "The arithmetic: the same multiplications and additions as the megakernel performs."
+        arith: "Both versions perform the same multiplications and additions."
       },
       "fuse-mega": {
-        none: "One kernel stays resident for the whole update, divided into four phases.",
-        sync: "Three grid-wide barriers remain. At each one, every SM waits for the slowest (shaded).",
-        mem: "Fused steps keep values on chip, but values crossing a barrier still go through the arena in GPU memory, and weights are still read and written there.",
-        arith: "The arithmetic is unchanged: fusion removes boundaries, not work."
+        none: "One kernel stays resident for the whole update. Its work is divided into four phases.",
+        sync: "Three grid-wide barriers remain. Every SM waits for the slowest at each barrier. Shading shows this waiting time.",
+        mem: "Fused steps keep values on chip. Values passed across a barrier use the arena in GPU memory. Weights are also read and written there.",
+        arith: "Fusion leaves the arithmetic unchanged."
       }
     };
     function upd() {

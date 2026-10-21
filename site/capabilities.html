@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="robots" content="noindex, nofollow, noarchive">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Latch Workloads</title>
-<meta name="description" content="What works in Latch v0, what is slower than conventional execution, what is experimental, what later research branches measured and what is unsupported, with evidence.">
+<title>Latch — Open problems</title>
+<meta name="description" content="Open compiler problems: performance, memory use, numerical checks and broader model support.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="assets/site.css?v=draft1">
+<link rel="stylesheet" href="assets/site.css?v=12">
 <script src="assets/config.js" defer></script>
+<script src="assets/reading.js" defer></script>
 </head>
 <body>
 <div class="draft-banner"><div class="wrap">Research preview — code coming soon</div></div>
@@ -19,9 +19,8 @@
     <nav aria-label="Main">
       <ul>
         <li><a href="walkthrough.html">How it works</a></li>
-        <li><a href="get-started.html">Try Latch</a></li>
-        <li><a href="capabilities.html" aria-current="page">Workloads</a></li>
-        <li><a href="methodology.html">Methodology</a></li>
+        <li><a href="capabilities.html" aria-current="page">Open problems</a></li>
+        <li><a href="methodology.html">Results</a></li>
       </ul>
     </nav>
   </div>
@@ -29,468 +28,30 @@
 
 <main id="main">
   <div class="wrap">
-    <div class="prose">
-      <p class="meta"><span>Workloads</span></p>
-      <h1>Supported workloads and open problems</h1>
-      <p class="lede">Each entry below is a specific configuration that we tested, not a family of models. A result for one configuration says nothing about nearby shapes or other models until those are tested too.</p>
-      <p><strong>How to read the ratios.</strong> “Latch ÷ control” is Latch's time for a complete update divided by the time of the fastest conventional implementation that passed the same numerical checks, either compiled or replayed from a CUDA graph. Below 1.00, Latch is faster. Where a faster conventional implementation failed those checks, the entry says so and explains which comparison it uses. All times are for complete training updates, or complete adaptation blocks where stated, on one H100 80GB, excluding compilation and data loading; they measure execution, not the time needed to reach a quality target. Section 1 was measured with the final package, <code>megakernel-lab 0.9.0rc1</code>. Sections 2–4 cover packaged code measured with earlier releases; their checks apply to the binaries measured then. Section 5 lists research branches whose workloads are not packaged. See <a href="methodology.html#measure">how we measure</a> and <a href="sources.html">sources</a>.</p>
-      <dl class="legend">
-        <dt><span class="tag v0">In this package</span></dt><dd>Measured with the final package <code>0.9.0rc1</code> and checked bitwise against the executor its learning results came from.</dd>
-        <dt><span class="tag ok">Verified in v0</span></dt><dd>Checked with the earlier v0 rc2 package (<code>0.8.0rc1</code>).</dd>
-        <dt><span class="tag hist">Historical</span></dt><dd>An earlier delivery or release candidate; qualification applies only to those binaries.</dd>
-        <dt><span class="tag research">Research branch</span></dt><dd>A study on a research compiler branch; its workload is not packaged.</dd>
-        <dt><span class="tag prov">Requalification pending</span></dt><dd>Built with a compiler rule (<code>rowchain</code>) later found to permit an arena race. No symptom was observed in these runs, but the build must be rebuilt with the fix and re-checked before its numbers are cited.</dd>
-      </dl>
-    </div>
-
-    <nav class="toc prose" aria-label="On this page">
-      <ol>
-        <li><a href="#package">Packaged and measured on this release</a></li>
-        <li><a href="#competitive">Packaged code with earlier measurements</a></li>
-        <li><a href="#slower">Working, but slower</a></li>
-        <li><a href="#experimental">Experimental or unqualified</a></li>
-        <li><a href="#research">Research branches, not packaged</a></li>
-        <li><a href="#unsupported">Unsupported</a></li>
-        <li><a href="#contribute">Where contributions would help</a></li>
-      </ol>
-    </nav>
-
-    <!-- Summary -->
-    <div class="table-wrap">
-      <table class="summary">
-        <caption>Final-package measurements first, then earlier and research measurements; ranges cover each listed configuration.</caption>
-        <thead>
-          <tr><th>Case</th><th>Tested configurations</th><th>Precision</th><th>Structure</th><th class="r">Latch ÷ control</th><th>Numerical status</th></tr>
-        </thead>
-        <tbody>
-          <tr class="row-head"><th colspan="6">Packaged and measured on this release (0.9.0rc1)</th></tr>
-          <tr><td><a href="#pkg-tinymoe">TinyMoE-200M training</a></td><td>2 × 512, <code>--rules auto</code></td><td>BF16 products, FP32 masters</td><td>1 kernel + staging</td><td class="r">0.195</td><td>Bitwise to the v0 options; FP64 audits u1/u32; exact restart</td></tr>
-          <tr><td><a href="#pkg-tinymoe">TinyMoE-200M training, recipe Q</a></td><td>32 × 1024</td><td>BF16 products, FP32 masters</td><td>1 kernel + staging</td><td class="r">0.574</td><td>Bitwise to the frozen executor; restart; 512-update continuation</td></tr>
-          <tr><td><a href="#pkg-selective">Selective-update training</a></td><td>2 × 1024 and 1 × 1024; experts every 16 / 32 microbatches</td><td>BF16 products, FP32 masters</td><td>2 programs, 1 kernel each</td><td class="r">0.136–0.155</td><td>Bitwise to frozen pairs; restart; continuation</td></tr>
-          <tr><td><a href="#pkg-smelt">Looped TinyMoE training (SMELT-style)</a></td><td>32 × 1024, two visits</td><td>BF16 products, FP32 masters</td><td>1 kernel</td><td class="r">0.745</td><td>Bitwise to the research program; restart</td></tr>
-          <tr><td><a href="#pkg-gradlev">GradLev adaptation of GPT-2's final MLP (not training)</a></td><td>Batch 1, 1,024-token block, P1b / P1</td><td>BF16 trunk and head, FP32 state</td><td>1 kernel</td><td class="r">0.285 / 0.560</td><td>Bitwise to the previous schedule; 1,024 held-out blocks identical</td></tr>
-          <tr><td><a href="#pkg-build">Compilation</a></td><td>E2-TTT 4 × 8,192; TinyMoE example and recipe Q</td><td>—</td><td>—</td><td class="r">0.52</td><td>Byte-identical generated programs</td></tr>
-          <tr class="row-head"><th colspan="6">Packaged code with earlier measurements</th></tr>
-          <tr><td><a href="#tinymoe">TinyMoE-200M, same batch (v0 rc2)</a></td><td>v0: 2 × 512, unchanged recipe</td><td>BF16 products, FP32 masters</td><td>1 kernel + staging</td><td class="r">0.426</td><td>v0: updates 1/32 audited; exact restart</td></tr>
-          <tr><td><a href="#tinymoe-ga">TinyMoE-200M, published batch</a></td><td>16 × 8 × 1024, accumulated</td><td>BF16 products, FP32 masters</td><td>1 kernel per microbatch</td><td class="r">0.90</td><td>One update audited</td></tr>
-          <tr><td><a href="#moe4">Distributed expert model</a></td><td>Four H100s, 32 experts, sequence 2048</td><td>Practical BF16</td><td>34 regions + communication</td><td class="r">0.48–0.56</td><td>Historical only; runner excluded from v0</td></tr>
-          <tr><td><a href="#ordinary">Byte-level transformer, 101.7M</a></td><td>Width 1024, 8 layers, batch 4 × 512</td><td>BF16 projections</td><td>1 kernel</td><td class="r">0.95</td><td>Qualified; not bitwise-restartable</td></tr>
-          <tr><td><a href="#mlp">Small MLPs and auxiliary heads</a></td><td>Widths 64–320, depth up to 4, strided layouts</td><td>BF16 and FP32</td><td>1 kernel</td><td class="r">0.87–0.99</td><td>Qualified</td></tr>
-          <tr><td><a href="#dynamic">Dynamic-batch MLP</a></td><td>v0: matrix_bf16-b32</td><td>BF16</td><td>1 kernel</td><td class="r">0.962</td><td>v0 fresh/trained audits pass</td></tr>
-          <tr><td><a href="#mixed">Mixed matrix + pairwise ops</a></td><td>v0: <code>fresh_pairwise</code></td><td>BF16 + FP32</td><td>1 kernel</td><td class="r">0.990</td><td>v0 fresh/trained audits pass</td></tr>
-          <tr><td><a href="#energy">Energy-based models</a></td><td>SD and WB image models</td><td>BF16 products</td><td>1 kernel</td><td class="r">0.85–0.94</td><td>Qualified (revised optimizer gate)</td></tr>
-          <tr><td><a href="#adaptive">Adaptive-memory model</a></td><td>Context 8192, chunks 128 and 64</td><td>Mixed BF16</td><td>1 kernel</td><td class="r">0.83–0.90</td><td>Latch qualified; controls not audited</td></tr>
-          <tr class="row-head"><th colspan="6">Slower</th></tr>
-          <tr><td><a href="#ffn">Feed-forward blocks</a></td><td>3 variants</td><td>BF16 products</td><td>1 kernel</td><td class="r">1.24–1.45</td><td>Qualified</td></tr>
-          <tr><td><a href="#ordinary-m">Byte-level transformer, nearby size</a></td><td>Width 512, 9 layers</td><td>BF16 projections</td><td>1 kernel</td><td class="r">1.23</td><td>Qualified</td></tr>
-          <tr><td><a href="#mlp-slow">Wider MLPs, some BF16 small MLPs</a></td><td>Widths 64–1024</td><td>BF16 and FP32</td><td>1 kernel</td><td class="r">1.01–1.54</td><td>Qualified</td></tr>
-          <tr><td><a href="#mixed-slow">Mixed programs</a></td><td><code>r13_mixed</code>, <code>r14_mixed_b</code></td><td>BF16 + FP32</td><td>1 kernel</td><td class="r">1.08–1.13</td><td>Qualified</td></tr>
-          <tr><td><a href="#dynamic-slow">Dynamic-batch MLP, edge cases</a></td><td>Batch 1; reserved shape</td><td>BF16</td><td>1 kernel</td><td class="r">1.05–1.26</td><td>Qualified</td></tr>
-          <tr><td><a href="#adaptive-slow">Adaptive memory, short context</a></td><td><code>m2k</code></td><td>Mixed BF16</td><td>1 kernel</td><td class="r">1.58</td><td>Latch qualified</td></tr>
-          <tr class="row-head"><th colspan="6">Experimental or unqualified</th></tr>
-          <tr><td><a href="#granite">Granite 3.0-1B-A400M</a></td><td>1 × 4096 and 16 × 4096</td><td>BF16 products</td><td>1 kernel per microbatch</td><td class="r">1.65–1.73</td><td>Gradient gates not met</td></tr>
-          <tr><td><a href="#smallbatch">Small-batch TinyMoE learning</a></td><td>1 × 1024, 2 × 1024 vs 128 × 1024</td><td>BF16 products</td><td>1 kernel</td><td class="r">—</td><td>Pilot not confirmed</td></tr>
-          <tr><td><a href="#tinymoe-other">TinyMoE at other shapes</a></td><td>1 × 384, 2 × 256, 1 × 1024, 2 × 1024</td><td>BF16 products</td><td>1 kernel</td><td class="r">—</td><td>Built and run; not fully qualified</td></tr>
-          <tr class="row-head"><th colspan="6">Research branches — workloads not packaged</th></tr>
-          <tr><td><a href="#research-tinymoe">TinyMoE-200M, research compiler</a></td><td>2, 8, 32 × 1024</td><td>BF16 products, FP32 masters</td><td>1 kernel</td><td class="r">0.22–0.57</td><td>Bitwise to frozen runs; arena fix included</td></tr>
-          <tr><td><a href="#research-more">MoRE-1792 / MoE-256</a></td><td>Published 4 × 64 × 1024 batch</td><td>TF32 experts</td><td>1 kernel per microbatch</td><td class="r">0.53 (whole runs 0.78–0.80)</td><td>+0.017 CE gap unexplained; excluded</td></tr>
-          <tr><td><a href="#research-more">DeltaTTT memory sub-layer</a></td><td>4 × 1024, FP32</td><td>FP32</td><td>1 kernel</td><td class="r">2.33</td><td>Bitwise; slower than FLA</td></tr>
-          <tr><td><a href="#research-more">SNACK sparse MLP / GPT-2</a></td><td>COO sparsity 90–99%</td><td>FP32</td><td>1 kernel</td><td class="r">0.65 / 1.22–1.75</td><td>Mixed</td></tr>
-          <tr><td><a href="#research-adapt">TinyMoE online adaptation</a></td><td>Last two expert blocks, U = 64–512</td><td>BF16 products</td><td>1 kernel</td><td class="r">1.26–1.67</td><td>Quality matches conventional</td></tr>
-          <tr><td><a href="#research-local">Greedy local learning, 125M class</a></td><td>K = 1, 2, 4 blocks, 32 × 1024</td><td>Practical BF16</td><td>1–4 kernels</td><td class="r">1.33–1.46</td><td>FP64 checks pass; requalification pending</td></tr>
-          <tr><td><a href="#research-e2ttt">E2-TTT-MLP outer training</a></td><td>64 × 2,048, 424.8M parameters</td><td>BF16 compute, FP32 masters</td><td>1 kernel per microbatch</td><td class="r">2.99</td><td>FP64 gate passes; bitwise restart</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Packaged and measured on this release -->
-    <section id="package">
-      <div class="prose">
-        <h2>1. Packaged and measured on this release <span class="tag v0">In this package</span></h2>
-        <p>Measured with <code>megakernel-lab 0.9.0rc1</code> on one otherwise idle H100 80GB, against the strongest conventional implementation we measured for each workload. Every program is bitwise equal to the executor its learning results were measured with. Receipts: <a href="evidence/final-package.json">final-package.json</a>; <a href="draft-notes.html#validation">validation summary</a>.</p>
-      </div>
-
-      <div class="entry prose" id="pkg-tinymoe">
-        <h3>TinyMoE-200M complete training update</h3>
-        <dl>
-          <dt>Workload</dt><dd>Public <code>FlameF0X/TinyMoE-200m-2x16</code>, all 199,837,056 parameters, forward, loss, backward, clipping and AdamW in one generated kernel.</dd>
-          <dt>2 × 512 tokens</dt><dd><code>latch-tinymoe build --rules auto</code>: 12.57 ms vs 64.52 ms for compiled-grouped PyTorch, the fastest of four screened implementations (5.13×); 5 alternating pairs × 16 updates. A second host: 12.56 vs 72.01 ms.</dd>
-          <dt>32 × 1024 tokens (recipe Q)</dt><dd>79.93 ms vs 139.20 ms for C32 compiled-grouped (1.74×); the frozen pre-release Latch program took 116.48 ms. Package compiler with the study's frozen recipe harness; no packaged quickstart at this batch.</dd>
-          <dt>Correctness</dt><dd>The 2 × 512 updates are bitwise equal to a build with the v0 option set; independent FP64 audits pass at updates 1 and 32; repeat and 15→32 restart bitwise. Recipe Q is bitwise equal to its frozen executor on four states, through its restart protocol and a 512-update real-text continuation.</dd>
-          <dt>Control</dt><dd>Per-layer <code>torch.compile</code>, grouped expert products, fused AdamW, deterministic; no CUDA graph was built for this ragged-routing update.</dd>
-          <dt>Example</dt><dd><a href="draft-notes.html#commands">command-guide status</a> (run from the installed wheel, including the arena audit: 0 violations).</dd>
-        </dl>
-      </div>
-
-      <div class="entry prose" id="pkg-selective">
-        <h3>TinyMoE with a selective update cadence</h3>
-        <dl>
-          <dt>Workload</dt><dd>Complete training in two programs that share state: the experts (85% of parameters) accumulate gradients and are updated once per window; the shared weights update every microbatch.</dd>
-          <dt>2 × 1024, window 16</dt><dd>10.28 ms per microbatch vs 66.45 ms for the same semantics in compiled-grouped PyTorch on the same GPU (6.5×); 5-round paired bench 10.12 ms.</dd>
-          <dt>1 × 1024, window 32 (B1-FAST)</dt><dd>8.72 ms vs 64.0–64.7 ms for the same-semantics compiled implementation on the same GPU (7.3×). Package compiler with the study's frozen harness.</dd>
-          <dt>Correctness</dt><dd>Bitwise equal to the frozen pre-rowchain reference pairs on four states × 3 complete cycles; exact restart mid-window; 512-microbatch continuation. From a trained state the conventional counterpart agrees within 0.0024 (loss).</dd>
-          <dt>Semantics note</dt><dd>The frozen rule's expert update uses a nonstandard beta1 bias correction (<code>1 − 0.9^t</code> with a microbatch-equivalent counter). It equals standard AdamW from trained states but takes about 8× smaller first steps from zero optimizer state. It is kept as frozen.</dd>
-          <dt>Example</dt><dd><a href="draft-notes.html#commands">command-guide status</a></dd>
-        </dl>
-      </div>
-
-      <div class="entry prose" id="pkg-smelt">
-        <h3>Looped TinyMoE, SMELT-style</h3>
-        <dl>
-          <dt>Workload</dt><dd>Middle six of twelve layers visited twice with shared weights and a ½ residual scale, 32 × 1024 tokens per update; a paper adaptation, not a reproduction of SMELT's architecture.</dd>
-          <dt>Performance</dt><dd>114.82 vs 154.22 ms against compiled PyTorch with forward and backward replayed from one CUDA graph (1.34×). Weight sharing gives no execution reuse. Example at 8 × 512: 25.6 vs 40.9 ms.</dd>
-          <dt>Correctness</dt><dd>Bitwise equal to the research program from three states; repeat and restart bitwise. Its matched learning runs (identical target crossings, Latch 1.31× sooner) therefore describe the packaged program.</dd>
-          <dt>Example</dt><dd><a href="draft-notes.html#commands">command-guide status</a></dd>
-        </dl>
-      </div>
-
-      <div class="entry prose" id="pkg-gradlev">
-        <h3>GradLev causal adaptation on GPT-2 (not training)</h3>
-        <dl>
-          <dt>Workload</dt><dd>A forward loop over a 1,024-token block in which GPT-2 small's final MLP is updated after every scored token; the trunk and head stay frozen. Deployment-time adaptation of one MLP, not full-model training.</dd>
-          <dt>Policy P1b</dt><dd>53.98 ms per complete block (trained state 54.15) vs 189.53 ms for a CUDA graph of the compiled step (3.51×); the previous Latch schedule took 75.18 ms. One kernel vs 18,176. The block clock includes the eager trunk prefill (7.5 ms), staging, reset and read-back.</dd>
-          <dt>Policy P1</dt><dd>90.36 ms vs 161.34 ms for the hybrid-head graph (1.79×).</dd>
-          <dt>Correctness</dt><dd>Bitwise equal to the previous schedule on fresh and trained states and on all 1,024 held-out test blocks; carried, restarted and reset state bitwise. Untuned nearby shapes 0.69–1.00× the previous time, all bitwise.</dd>
-          <dt>Example</dt><dd><a href="draft-notes.html#commands">command-guide status</a></dd>
-        </dl>
-      </div>
-
-      <div class="entry prose" id="pkg-build">
-        <h3>Compilation time</h3>
-        <dl>
-          <dt>Measured</dt><dd>E2-TTT 4 layers × 8,192 tokens: 543.6 / 546.8 s → 282.6 / 282.9 s on two dedicated 64-vCPU hosts (capture, 66 s, reported separately). TinyMoE example, whole build command: 544.5 → 283.1 s. Recipe Q build: 463.3 → 241.9 s.</dd>
-          <dt>Equivalence</dt><dd>Generated <code>program.cu</code>, manifest, bindings and headers byte-identical in every case. The saving is in lowering and capture; native nvcc time is unchanged, so the gain depends on how much of a model's build is lowering.</dd>
-        </dl>
-      </div>
-    </section>
-
-    <!-- Competitive -->
-    <section id="competitive">
-      <div class="prose">
-        <h2>2. Packaged code with earlier measurements</h2>
-        <p>These ship in the package; their timings come from the v0 rc2 package or release candidate 0.7.1rc1 and were not re-timed on this release.</p>
-      </div>
-
-      <div class="entry prose" id="tinymoe">
-        <h3>TinyMoE-200M, same batch per update</h3>
-        <dl>
-          <dt>Model / operations</dt><dd>Public <code>FlameF0X/TinyMoE-200m-2x16</code>, all 199,837,056 parameters: 12 layers, width 384, grouped-query attention (8 query / 4 key-value heads, width 48), 16 experts with top-2 token-choice routing and no token dropping, untied 32,000-word readout, router load-balancing loss. Continued training on WikiText-103.</dd>
-          <dt>Historical dimensions</dt><dd>Batch × sequence 1 × 256 and 2 × 512; recipes <code>unchanged</code> and <code>supervision_ema</code> (exits after layers 4 and 8, faded out, plus weight averaging).</dd>
-          <dt>Precision</dt><dd>FP32 master weights and Adam moments; BF16 projections, attention and expert products. AdamW with global clipping.</dd>
-          <dt>Variations</dt><dd>Optimizer rule, loss terms, LR schedule, batch and sequence within 256–1,024 tokens (steps of 128) through rebuild.</dd>
-          <dt>Structure</dt><dd>One generated cooperative kernel (132 blocks) per update, plus three scalar fills and five small copies.</dd>
-          <dt>Current v0</dt><dd>Unchanged B2 × S512: 31.298 ms Latch vs 73.431 ms compiled-grouped, a 2.346× ratio of pooled complete-update medians over 80 updates per arm. Both arms pass unchanged independent audits at updates 1/32; native 15→32 restart is exact. See <a href="draft-notes.html#validation">validation summary</a> and <a href="draft-notes.html#validation">validation summary</a>.</dd>
-          <dt>Historical performance</dt><dd>Latch 24.1–33.5 ms vs compiled-grouped PyTorch 64.0–69.2 ms across six phase/shape windows (2.07–2.68× faster). Same H100, five alternating pairs, 80 measured updates per arm.</dd>
-          <dt>Historical correctness</dt><dd>400-update runs at both shapes and recipes; twelve full-update checks against an FP64 reference; exact restart from update 199; held-out evaluation. Qualification binds those exact binaries; rebuilds need fresh checks. No learning benefit from supervision/EMA was observed.</dd>
-          <dt>Example</dt><dd><code>latch-tinymoe</code> (<a href="get-started.html#run-it">walkthrough</a>) <span class="tag v0">Packaged quickstart</span></dd>
-          <dt>Evidence</dt><dd><a href="evidence/tinymoe-execution.json">tinymoe-execution.json</a></dd>
-        </dl>
-      </div>
-
-      <div class="entry prose" id="tinymoe-ga">
-        <h3>TinyMoE-200M at its published batch</h3>
-        <dl>
-          <dt>Model / operations</dt><dd>As above, from the public weights, with gradient accumulation written as an ordinary optimizer rule.</dd>
-          <dt>Tested dimensions</dt><dd>Published settings recovered from the checkpoint: 16 microbatches of 8 × 1024 tokens per optimizer update (131,072 tokens), AdamW lr 3e-4, weight decay 0.1, clip 1.0.</dd>
-          <dt>Precision</dt><dd>BF16 autocast policy with FP32 masters; FP32 accumulation of gradients.</dd>
-          <dt>Structure</dt><dd>One generated kernel per microbatch: 16 generated launches plus 17 scalar fills per update (compiled PyTorch: 69,394 kernels).</dd>
-          <dt>Performance</dt><dd>Latch 977 ms vs compiled-grouped with accumulation 1,088 ms (1.11×) and a reconstruction of the original Hugging Face Trainer setup 6,037 ms (6.18×). Same H100, 3 rounds × 20 updates.</dd>
-          <dt>Correctness</dt><dd>One complete accumulated update audited: 16/16 microbatch gradient checks against FP64, exact accumulation, clip and AdamW formula. No trajectory, restart or held-out claim.</dd>
-          <dt>Example</dt><dd>The accumulating tensor rule is packaged under <code>megakernel_lab.tinymoe.learning</code> (<code>build-ga</code>). This published-batch timing remains historical; v0 did not rerun the full accumulation campaign. Its router reduction differs from the small-batch learning protocol.</dd>
-          <dt>Evidence</dt><dd><a href="evidence/tinymoe-execution.json">tinymoe-execution.json</a> (<code>accumulation_S1024</code>)</dd>
-        </dl>
-      </div>
-
-      <div class="entry prose" id="moe4">
-        <h3>Historical distributed expert model on four H100s — excluded from v0</h3>
-        <dl>
-          <dt>Model / operations</dt><dd>One fixed workload: a 100M-parameter backbone (about 210M parameters in total) with 32 experts per layer, two intermediate readout heads, vocabulary 50,257, Muon + AdamW, weight averaging (EMA). Expert-parallel across four GPUs.</dd>
-          <dt>Tested dimensions</dt><dd>Sequence length 2048 across four ranks; two heads (H2) in auxiliary and post-auxiliary phases; nearby one-head (H1) case.</dd>
-          <dt>Precision</dt><dd>Practical BF16 products with FP32 gradient sum across ranks.</dd>
-          <dt>Structure</dt><dd><strong>Not a single kernel.</strong> 34 generated regions per update plus external NCCL communication (32 token all-to-all exchanges and one FP32 gradient sum in 33 buckets), packing and runtime work.</dd>
-          <dt>Performance</dt><dd>Schedule-weighted update 111.6 ms vs 219.4 ms for the strongest control that passed the checks (1.97×); individual phases 0.48–0.56. Clock is the slowest rank's synchronized complete update; four H100s on one host.</dd>
-          <dt>Correctness</dt><dd>Full four-rank FP64 checks pass for all four cases; transition, restart and raw/EMA evaluation pass. No new full learning trajectory was run for this runtime. Faster compiled controls that failed the checks are excluded.</dd>
-          <dt>Package decision</dt><dd>The private <code>moe4</code> runtime, runner, CLI and examples are excluded from v0. Historical four-H100 evidence is retained for context and is not new v0 qualification. The required WeightEMA utility was ported into <code>tinymoe</code>. See <a href="draft-notes.html#scope">package scope</a>.</dd>
-          <dt>Evidence</dt><dd><a href="evidence/release-rc1.json">release-rc1.json</a> (<code>moe_four_h100</code>)</dd>
-        </dl>
-      </div>
-
-      <div class="entry prose" id="ordinary">
-        <h3>Byte-level transformer, 101.7M parameters</h3>
-        <dl>
-          <dt>Model / operations</dt><dd>Ordinary transformer over bytes: embedding, attention, MLP, LayerNorm, readout; SGD with momentum.</dd>
-          <dt>Tested dimensions</dt><dd><code>o-l-bf16</code>: width 1024, 8 layers, batch 4 × 512.</dd>
-          <dt>Precision</dt><dd>Explicit BF16 projections, FP32 master weights.</dd>
-          <dt>Structure</dt><dd>One generated kernel per update.</dd>
-          <dt>Performance</dt><dd>4.889 ms vs 5.151 ms (0.95). 40 warm-up and 3 × 100 timed updates per arm and round, three rotated rounds.</dd>
-          <dt>Correctness</dt><dd>Fresh and trained-state checks pass. Embedding gradients use unordered FP32 atomics by default, so saved-state restart is not bitwise exact; a deterministic reduction policy exists but its speed is not measured here.</dd>
-          <dt>Example</dt><dd><code>python -I -m megakernel_lab.fast_examples prepare ordinary o-l-bf16</code>, then <code>compare</code> and <code>verify</code></dd>
-          <dt>Evidence</dt><dd><a href="evidence/release-rc1.json">release-rc1.json</a> (<code>generic</code>)</dd>
-        </dl>
-      </div>
-
-      <div class="entry prose" id="mlp">
-        <h3>Small MLPs and auxiliary heads</h3>
-        <dl>
-          <dt>Model / operations</dt><dd>Residual and shared MLPs with optional auxiliary heads and skip connections; SGD, momentum, coupled weight decay.</dd>
-          <dt>Tested dimensions</dt><dd>BF16: <code>shared-64</code> (0.87), <code>shared-aux-odd-200</code> (0.87), <code>chain-aux-skip-320</code> (0.98), plus strided-layout versions. FP32: <code>aux-64</code> (0.93), <code>aux-64-depth4</code> (0.94), <code>chain-64</code> (0.99), <code>chain-aux-skip-320</code> (0.89, also strided).</dd>
-          <dt>Precision</dt><dd>BF16 products or FP32, as named.</dd>
-          <dt>Structure</dt><dd>One generated kernel per update; exact saved-state restart.</dd>
-          <dt>Performance</dt><dd>Ratios above are against the fastest measured compiled control. For FP32 cases, a compiled control using BF16 products is faster but has different arithmetic and fails the checks; the ratio uses the matched FP32 control.</dd>
-          <dt>Correctness</dt><dd>All Latch implementations pass fresh and trained checks, including all formerly failing auxiliary-head builds.</dd>
-          <dt>Example</dt><dd><code>python -I -m megakernel_lab.fast_examples prepare mlp shared-64-bf16</code></dd>
-          <dt>Evidence</dt><dd><a href="evidence/release-rc1.json">release-rc1.json</a> (<code>generic</code>)</dd>
-        </dl>
-      </div>
-
-      <div class="entry prose" id="dynamic">
-        <h3>Dynamic-batch MLP</h3>
-        <dl>
-          <dt>Model / operations</dt><dd>Two-layer MLP; one native binary built for capacity 32 serves smaller batches without recompiling.</dd>
-          <dt>Tested dimensions</dt><dd>Current v0 batch 32: 0.030653 ms vs 0.031866 ms compiled control (ratio 0.962). The older release measured batch 16 and 32 at about 0.97. These are separate measurements.</dd>
-          <dt>Precision</dt><dd>Explicit BF16 products.</dd>
-          <dt>Structure</dt><dd>One generated kernel per update; exact restart.</dd>
-          <dt>Correctness</dt><dd>Latch and compiled controls pass fresh and trained checks.</dd>
-          <dt>Example</dt><dd><code>python -I -m megakernel_lab.fast_examples prepare dynamic matrix_bf16-b32</code></dd>
-          <dt>Evidence</dt><dd><a href="draft-notes.html#validation">validation summary</a> (<code>generic</code>)</dd>
-        </dl>
-      </div>
-
-      <div class="entry prose" id="mixed">
-        <h3>Mixed matrix and pairwise operations</h3>
-        <dl>
-          <dt>Model / operations</dt><dd>Explicit-BF16 MLP plus an FP32 pairwise batched-matmul auxiliary branch with shared parameters; SGD with momentum.</dd>
-          <dt>Tested dimensions</dt><dd>Current v0 <code>fresh_pairwise</code>: 0.103778 ms vs 0.104870 ms compiled control (ratio 0.990); two rounds, 600 measured updates per arm. This small timing difference is not a broad performance claim.</dd>
-          <dt>Structure</dt><dd>One generated kernel per update.</dd>
-          <dt>Correctness</dt><dd>Fresh and trained checks pass.</dd>
-          <dt>Example</dt><dd><code>python -I -m megakernel_lab.fast_examples prepare mixed fresh_pairwise</code></dd>
-          <dt>Evidence</dt><dd><a href="draft-notes.html#validation">validation summary</a></dd>
-        </dl>
-      </div>
-
-      <div class="entry prose" id="energy">
-        <h3>Energy-based models</h3>
-        <dl>
-          <dt>Model / operations</dt><dd>Energy models trained with a K-step sampling chain, negative initialization, clipping, AdamW and a sample buffer, on Fashion-MNIST.</dd>
-          <dt>Tested dimensions</dt><dd>SD: hidden 384, width 768, 8 layers, batch 256, K = 32 (0.94). WB: 4 layers, K = 64 (0.85).</dd>
-          <dt>Precision</dt><dd>BF16 products.</dd>
-          <dt>Structure</dt><dd>One generated kernel per update.</dd>
-          <dt>Performance</dt><dd>5.19 vs 5.49 ms and 4.73 vs 5.57 ms; 20 paired randomized rounds with 95% bootstrap intervals [0.942, 0.945] and [0.848, 0.851]. An older WB configuration with K = 8 was slower (1.07).</dd>
-          <dt>Correctness</dt><dd>400-update learning check passes. The original optimizer gate (relative error 1e-5 from FP64) fails for Latch and for the FP32 control alike; the pre-existing revised gate calibrated to the control passes.</dd>
-          <dt>Example</dt><dd><code>python -I -m megakernel_lab.fast_examples prepare energy sd</code></dd>
-          <dt>Evidence</dt><dd><a href="evidence/release-rc1.json">release-rc1.json</a> (<code>adaptive_energy</code>)</dd>
-        </dl>
-      </div>
-
-      <div class="entry prose" id="adaptive">
-        <h3>Adaptive-memory model</h3>
-        <dl>
-          <dt>Model / operations</dt><dd>A model that writes to and reads from an internal memory in chunks as it processes a sequence; Muon + AdamW.</dd>
-          <dt>Tested dimensions</dt><dd><code>m8k</code>: batch 2, context 8192, chunk 128 (0.90). <code>m8k_c64</code>: chunk 64 (0.83).</dd>
-          <dt>Precision</dt><dd>Mixed BF16.</dd>
-          <dt>Structure</dt><dd>One generated kernel per update.</dd>
-          <dt>Correctness</dt><dd>Latch passes fresh and trained checks on synthetic data. The compiled controls have timing and final-loss observations but no independent state audit, so these ratios are weaker than the others. A faster max-autotune control for <code>m8k</code> diverges and is excluded.</dd>
-          <dt>Example</dt><dd><code>python -I -m megakernel_lab.fast_examples prepare adaptive m8k</code></dd>
-          <dt>Evidence</dt><dd><a href="evidence/release-rc1.json">release-rc1.json</a> (<code>adaptive_energy</code>)</dd>
-        </dl>
-      </div>
-    </section>
-
-    <!-- Slower -->
-    <section id="slower">
-      <div class="prose">
-        <h2>3. Working, but slower</h2>
-        <p>These run correctly and pass their checks, but a conventional implementation is faster. Use conventional execution for them today.</p>
-      </div>
-
-      <div class="entry prose" id="ffn">
-        <h3>Feed-forward blocks</h3>
-        <dl>
-          <dt>Tested dimensions</dt><dd>LayerNorm, up-projection, activation, down-projection and residual with AdamW and clipping: <code>ffn</code> 1.00 vs 0.81 ms (1.24), <code>ffn-d768</code> 0.74 vs 0.59 ms (1.26), <code>ffn-gelu</code> 0.89 vs 0.62 ms (1.45).</dd>
-          <dt>Structure / correctness</dt><dd>One kernel; all arms pass; exact restart.</dd>
-          <dt>Example</dt><dd><code>python -I -m megakernel_lab.fast_examples prepare ffn</code></dd>
-        </dl>
-      </div>
-
-      <div class="entry prose" id="ordinary-m">
-        <h3>Byte-level transformer, nearby size</h3>
-        <dl>
-          <dt>Tested dimensions</dt><dd><code>o-m-bf16</code>, width 512, 9 layers: 3.24 vs 2.64 ms (1.23). The larger 101.7M model is faster than its control; this smaller one is not.</dd>
-          <dt>Example</dt><dd><code>python -I -m megakernel_lab.fast_examples prepare ordinary o-m-bf16</code></dd>
-        </dl>
-      </div>
-
-      <div class="entry prose" id="mlp-slow">
-        <h3>Wider MLPs and some small BF16 MLPs</h3>
-        <dl>
-          <dt>Tested dimensions</dt><dd>BF16: <code>heldout-128</code> 1.12, <code>chain-512</code> 1.16, <code>shared-512</code> 1.19, <code>aux-512</code> 1.22, <code>shared-skip-1024</code> 1.54. FP32 against matched FP32 controls: 1.01–1.19 at widths 64–1024.</dd>
-          <dt>Note</dt><dd>BF16 <code>aux-64</code>, <code>aux-64-depth4</code> and <code>chain-64</code> are faster than the fastest control that passed the checks, but compiled PyTorch is 9–16% faster still while failing a relative-error check on tiny updates of zero-initialized biases. We count them as slower.</dd>
-        </dl>
-      </div>
-
-      <div class="entry prose" id="mixed-slow">
-        <h3>Mixed programs</h3>
-        <dl>
-          <dt>Tested dimensions</dt><dd><code>r13_mixed</code> 0.238 vs 0.220 ms (1.08); <code>r14_mixed_b</code> 0.296 vs 0.261 ms (1.13). The max-autotune compiled control failed or was incomplete for these; the default compiled control is used.</dd>
-        </dl>
-      </div>
-
-      <div class="entry prose" id="dynamic-slow">
-        <h3>Dynamic-batch MLP edge cases</h3>
-        <dl>
-          <dt>Tested dimensions</dt><dd>Batch 1 from the capacity-32 binary: 0.029 vs 0.023 ms (1.26). Reserved shape <code>reserved_bf16-b32</code>: 1.05.</dd>
-        </dl>
-      </div>
-
-      <div class="entry prose" id="adaptive-slow">
-        <h3>Adaptive memory, shorter context</h3>
-        <dl>
-          <dt>Tested dimensions</dt><dd><code>m2k</code>: 12.19 vs 7.70 ms (1.58) against a max-autotune control without an independent state audit.</dd>
-        </dl>
-      </div>
-    </section>
-
-    <!-- Experimental -->
-    <section id="experimental">
-      <div class="prose">
-        <h2>4. Experimental or unqualified</h2>
-      </div>
-
-      <div class="entry prose" id="granite">
-        <h3>Granite 3.0-1B-A400M</h3>
-        <dl>
-          <dt>Model / operations</dt><dd>Public <code>ibm-granite/granite-3.0-1b-a400m-base</code>: 24 layers, width 1024, 32 experts with top-8 routing, vocabulary 49,152, tied readout, 1.33B parameters (429M active per token). Continued training from the released weights.</dd>
-          <dt>Tested dimensions</dt><dd>Sequence 4096 only: 1 × 4096 per update, and 16 × 4096 with accumulation.</dd>
-          <dt>Precision</dt><dd>BF16 products, FP32 masters; AdamW at constant learning rate 1e-5.</dd>
-          <dt>Structure</dt><dd>One generated kernel per microbatch (4,241 phases).</dd>
-          <dt>Performance</dt><dd><strong>Slower:</strong> 161.5 vs 97.9 ms (1.65) and 2,256 vs 1,305 ms (1.73) against compiled grouped PyTorch; 5–8× faster than installed Transformers. The compiled control ran without deterministic algorithms.</dd>
-          <dt>Correctness</dt><dd>Optimizer, loss, routing, accumulation and bitwise restart checks pass. Gradient errors are comparable to three valid BF16 implementations, but the frozen gradient gates are not met (they also reject valid implementations). <strong>Not qualified.</strong></dd>
-          <dt>Example</dt><dd>Not in v0. The two compiler repairs it needed are not yet integrated.</dd>
-          <dt>Evidence</dt><dd><a href="evidence/granite.json">granite.json</a></dd>
-        </dl>
-      </div>
-
-      <div class="entry prose" id="smallbatch">
-        <h3>Small-batch TinyMoE learning</h3>
-        <dl>
-          <dt>Scope</dt><dd>TinyMoE from random initialization on FineWeb-Edu. In a single-seed pilot with a 131,072,000-token schedule, Latch at 2 × 1024 tokens per update reached validation loss 4.187 with 62.5% fewer tokens and 31% less training-update time than the compiled PyTorch configuration used in that pilot (128 × 1024 as 16 microbatches of 8). At 1 × 1024 it was not faster in time.</dd>
-          <dt>Status</dt><dd><span class="tag pilot">Pilot not confirmed</span> The pattern repeated on fresh seeds with the same short schedule (0.45–0.70× the conventional time where both arms reached a level), but reversed when only the learning-rate schedule changed (1.08–1.68×). With each arm's schedule tuned independently, conventional training reached every target first (Latch needed 1.27–1.59× the time, or did not reach the target). Frequent small updates remain more token-efficient, about 1.2–1.4× fewer tokens at dev 3.30–3.50, but that has not translated into less training time in any measured TinyMoE recipe. The pilot's conventional arm was also about 2.2× slower per token than the strongest batch-128 PyTorch measured later. These follow-ups ran on research branches.</dd>
-          <dt>Package</dt><dd>The v0 learning tools passed a 128-update software check with exact restart and FP64 audits of fresh updates 1 and 2 only; they reproduce no learning study.</dd>
-          <dt>Evidence</dt><dd><a href="methodology.html#headline-scope">Learning studies</a> · <a href="evidence/smallbatch-pilot.json">smallbatch-pilot.json</a> (pilot extract) · <a href="draft-notes.html#learning">learning-study summary</a> (frozen before the follow-ups)</dd>
-        </dl>
-      </div>
-
-      <div class="entry prose" id="tinymoe-other">
-        <h3>TinyMoE at other shapes</h3>
-        <dl>
-          <dt>Historical scope</dt><dd>1 × 384 and 2 × 256 were built and run (2 × 256 needs an opt-in shared-memory pool); 1 × 1024 and 2 × 1024 passed FP64 audits of their first two updates for the pilot. Those historical checks are separate from current v0 B2 × S1024 learning-machinery validation: 128 updates and exact restart, with independent FP64 audits limited to its first two fresh updates.</dd>
-        </dl>
-      </div>
-    </section>
-
-    <!-- Research -->
-    <section id="research">
-      <div class="prose">
-        <h2>5. Research branches, not packaged <span class="tag research">Research branch</span></h2>
-        <p>These studies ran on research branches. Their workloads are not packaged and their binaries carry no package qualification. Ratios are Latch ÷ the strongest conventional implementation built for that workload.</p>
-      </div>
-
-      <div class="entry prose" id="research-tinymoe">
-        <h3>TinyMoE-200M on a later research compiler <span class="tag research">Research branch</span></h3>
-        <dl>
-          <dt>Tested dimensions</dt><dd>2, 8 and 32 × 1024 tokens per update; the original 16-expert, top-2 architecture.</dd>
-          <dt>Performance</dt><dd>4.52×, 2.62× and 1.74× faster than the strongest compiled control (ratios 0.22, 0.38, 0.57). At 8 × 1024: 28.69 ms vs 75.20 ms; the control ran 3,938 kernels, 53 copies and 435 memsets per update.</dd>
-          <dt>Control</dt><dd>Compiled-grouped PyTorch; no CUDA-graph control was built for this ragged-routing update.</dd>
-          <dt>Correctness</dt><dd>Eight full training runs reproduce frozen trajectories bit for bit. Built with the arena-race fix. The 32 × 1024 build has no FP64 audit of its own.</dd>
-          <dt>Source</dt><dd>Branch <code>codex/tinymoe-finer-transfer</code> @ <code>72644c71f</code>, <span>Internal research report (not published in this draft)</span>.</dd>
-        </dl>
-      </div>
-
-      <div class="entry prose" id="research-gradlev">
-        <h3>GradLev and looped TinyMoE <span class="tag v0">Now packaged</span></h3>
-        <p id="research-smelt">Both earlier research results are now packaged and re-measured; see <a href="#pkg-gradlev">GradLev</a> and <a href="#pkg-smelt">looped TinyMoE</a>.</p>
-      </div>
-
-      <div class="entry prose" id="research-more">
-        <h3>MoRE, DeltaTTT and SNACK <span class="tag research">Research branch</span></h3>
-        <dl>
-          <dt>MoRE-1792 / MoE-256</dt><dd>0.530 / 0.527 at a trained, collapsed-routing state; 0.66–0.69 near initialization and 0.78–0.80 over whole runs. MoRE-1792 shows an unexplained +0.017 validation CE gap, and upstream redistribution rights are unresolved, so it is excluded from the package.</dd>
-          <dt>DeltaTTT memory sub-layer</dt><dd>6.84 ms vs FLA 2.93 ms (BF16 inputs), 2.3× slower; 1.14× vs compiled FP32. The hybrid language model is 3.9× slower than FLA.</dd>
-          <dt>SNACK sparse COO</dt><dd>Sparse MLP at batch 4096 1.54× faster than cuSPARSE with a CUDA graph; GPT-2 small 0.57–0.82× speed, limited by dense FP32 head and attention bodies.</dd>
-        </dl>
-      </div>
-
-      <div class="entry prose" id="research-adapt">
-        <h3>TinyMoE online adaptation <span class="tag research">Research branch</span></h3>
-        <dl>
-          <dt>Scope</dt><dd>Pretrained TinyMoE-200M adapts its last two expert blocks while reading held-out text (dynamic evaluation), updating every 64 to 512 tokens.</dd>
-          <dt>Performance</dt><dd>Slower: the complete prediction-plus-adaptation clock is 1.26–1.67× the optimized conventional implementation, compiled and replayed from a CUDA graph.</dd>
-          <dt>Correctness</dt><dd>Latch reproduces the conventional adaptation's quality within ±0.0004 nats.</dd>
-          <dt>Source</dt><dd>Branch <code>codex/latch-tinymoe-adapt</code> @ <code>a70e5959a</code>, <span>Internal research report (not published in this draft)</span>.</dd>
-        </dl>
-      </div>
-
-      <div class="entry prose" id="research-local">
-        <h3>Greedy local learning <span class="tag research">Research branch</span> <span class="tag prov">Requalification pending</span></h3>
-        <dl>
-          <dt>Scope</dt><dd>A 125M-class Llama-style decoder trained end to end or as K = 2 or 4 locally supervised blocks, 32 × 1024 tokens per update.</dd>
-          <dt>Performance</dt><dd>Slower: 1.33× at K = 2 and 4, 1.46× end to end (for example 97.28 vs 66.75 ms), against <code>torch.compile</code> max-autotune with one CUDA graph per update. Dense products and vocabulary heads dominate.</dd>
-          <dt>Correctness</dt><dd>FP64 reference checks pass; Latch restart bitwise. Slower than its control either way; rebuild with the arena fix is low priority.</dd>
-          <dt>Source</dt><dd>Branch <code>codex/local-learning-latch</code> @ <code>7b78eef39</code>.</dd>
-        </dl>
-      </div>
-
-      <div class="entry prose" id="research-e2ttt">
-        <h3>E2-TTT-MLP outer training <span class="tag research">Research branch</span></h3>
-        <dl>
-          <dt>Scope</dt><dd>The released E2-TTT-MLP model (424,841,408 parameters), complete outer-training update through its inner memory updates, 64 × 2,048 tokens.</dd>
-          <dt>Performance</dt><dd>Slower: 9.12 s (default build, 2-sequence microbatches) vs 3.05 s for <code>torch.compile</code> max-autotune at 4-sequence microbatches on the same H100. The 4-sequence microbatch does not fit in Latch's arena. A further-tuned build reached 8.79 s with the pre-fix rowchain rule; it was not rebuilt, since it is slower either way. Its exact compiler fixes ship in this package and halve its build time.</dd>
-          <dt>Correctness</dt><dd>Gradient error equal to the published implementation's against FP64; bitwise restart; identical 256-update continuation.</dd>
-          <dt>Details</dt><dd><a href="methodology.html#case-e2ttt">Case study</a>. Branch <code>codex/latch-e2ttt-outer</code> @ <code>172931a35</code>.</dd>
-        </dl>
-      </div>
-    </section>
-
-    <!-- Unsupported -->
-    <section id="unsupported" class="prose">
-      <h2>5. Unsupported</h2>
-      <ul class="plain">
-        <li><strong>GPUs other than the H100.</strong> Generated code targets SM90 (Hopper) and every measurement is on H100 80GB.</li>
-        <li><strong>Arbitrary PyTorch programs.</strong> Latch captures a defined set of operations; others are rejected. New architectures usually need an adapter and compiler work.</li>
-        <li><strong>General dynamic shapes.</strong> Each binary is built for static shapes, except the bounded batch dimension of the dynamic MLP example.</li>
-        <li><strong>General multi-GPU training.</strong> The historical fixed four-H100 runner is not shipped. The package makes no general distributed-training claim; see <a href="draft-notes.html#scope">package scope</a>.</li>
-        <li><strong>General inference and generation.</strong> The package measures one forward loop, GradLev's causal adaptation, through <code>vector_resident</code>: batch-1 products, last-dimension reductions, small carries, at most 1,024 steps, a fixed grid of 132 CTAs, an L2 budget tuned for the H100. Other inference and generation programs are present as capture code but are not qualified or measured.</li>
-        <li><strong>Convolutions, nested loops, dropout and attention padding masks as package features.</strong> Compiler code for these is present, but it has not been qualified or measured for this package.</li>
-        <li><strong>Moving built artifacts.</strong> Exact restart requires the same binaries at the same absolute paths and runtime.</li>
-        <li><strong>One-click builds.</strong> Large models need explicit build options today.</li>
-      </ul>
-    </section>
-
-    <!-- Contribute -->
-    <section id="contribute" class="prose">
-      <h2>6. Where contributions would help</h2>
-      <p>Each target comes from a measured limitation above.</p>
-      <ol class="plain">
-        <li><strong>Long-sequence attention.</strong> On Granite at 4,096 tokens, Latch's attention takes about 20 ms per update against about 14 ms for FlashAttention-2.</li>
-        <li><strong>Gradients of repeated gathers.</strong> Top-8 routing sends each token to 8 experts; Latch's deterministic backward scatter takes about 32 ms where conventional code takes about 5 ms. The multiplicity is known in advance, so a direct per-row sum should be possible.</li>
-        <li><strong>Fewer barrier-separated phases.</strong> Granite's update has about 1,200 small elementwise, normalization and routing intervals costing about 25 ms; in E2-TTT, standalone elementwise phases take 55% of the memory region at 4 sequences. Fusing them is open work.</li>
-        <li><strong>Smaller activation arenas.</strong> Latch keeps every saved activation in one arena without recomputation; E2-TTT's published microbatch does not fit on an 80 GB H100.</li>
-        <li><strong>Feed-forward blocks</strong> remain 1.24–1.45× slower than compiled PyTorch.</li>
-        <li><strong>Faster lowering.</strong> This package halves build time with identical output (TinyMoE example 544 → 283 s on 64 vCPUs), but lowering is still single-threaded Python and remains the largest part of most builds.</li>
-        <li><strong>Automatic build configuration.</strong> Choosing device units, outlining and shared-memory reserves without hand-set flags, so a new shape just builds.</li>
-        <li><strong>Large-batch efficiency.</strong> The TinyMoE advantage is 5.1× at 2 × 512 and 1.74× at 32 × 1024 per update with this package; an older measurement at the published batch (16 × 8 × 1024) was about 10%, and on Granite at 4,096 tokens Latch remains slower. Larger batches still reduce the advantage.</li>
-        <li><strong>Numerical checks for BF16 expert models.</strong> At trained states every valid BF16 implementation of Granite is 25–33% (median) from FP64 on single accumulation microbatches; a better-calibrated, pre-registered criterion is needed.</li>
-        <li><strong>New models and learning algorithms.</strong> Ports of other public models, and learning algorithms that make use of frequent small updates.</li>
-      </ol>
-    </section>
+    <article class="prose" id="contribute">
+      <h1>Open problems</h1>
+      <p class="lede">The full list of supported workloads will be published with the open-source code.</p>
+<ol class="plain">
+<li><strong>Long-sequence attention.</strong> On Granite at 4,096 tokens, Latch's attention takes about 20 ms per update against about 14 ms for FlashAttention-2.</li>
+<li><strong>Gradients of repeated gathers.</strong> Top-8 routing sends each token to eight experts. Latch’s deterministic backward scatter takes about 32 ms against about 5 ms conventionally. The number of contributions is known in advance. A direct sum per row may be faster.</li>
+<li><strong>Fewer barrier-separated phases.</strong> Granite spends about 25 ms on 1,200 small elementwise, normalization and routing intervals. Standalone elementwise phases take 55% of E2-TTT’s memory-region time at four sequences. Combining these operations could reduce that cost.</li>
+<li><strong>Smaller activation arenas.</strong> Latch saves activations in an arena without recomputation. E2-TTT’s published microbatch does not fit on an 80 GB H100.</li>
+<li><strong>Feed-forward blocks</strong> remain 1.24–1.45× slower than compiled PyTorch.</li>
+<li><strong>Faster lowering.</strong> This package cuts TinyMoE build time from 544 to 283 s on 64 vCPUs with identical output. Lowering still uses single-threaded Python and takes the largest share of most builds.</li>
+<li><strong>Automatic build configuration.</strong> The compiler could choose device units, outlining and shared-memory reserves. These require explicit flags today.</li>
+<li><strong>Large-batch efficiency.</strong> TinyMoE’s update speedup falls from 5.1× at 2 × 512 to 1.74× at 32 × 1024. An older measurement saved about 10% at the published batch of 16 × 8 × 1024. Granite remains slower at 4,096 tokens.</li>
+<li><strong>Fused backward rotary unpack.</strong> <code>rpackb</code> gives wrong key-projection gradients when an elementwise gate sits between attention and its output projection. The skips-and-gates study found this defect. The rule needs a fix or a check that rejects the pattern.</li>
+<li><strong>Numerical checks for BF16 expert models.</strong> Tested BF16 implementations of Granite differ from FP64 by a median 25–33% on individual accumulation microbatches at trained states. Latch and PyTorch also sometimes exceed the 0.08 gradient gate at TinyMoE’s trained 2 × 512 states. A separate study should establish a better-calibrated criterion before testing new candidates.</li>
+<li><strong>New models and learning algorithms.</strong> Port another public model or test a learning rule that uses frequent small updates.</li>
+</ol>
+    </article>
   </div>
 </main>
 
 <footer class="site-footer">
   <div class="wrap">
     <span>Latch v0 research preview</span>
-    <a href="sources.html">Sources for every number</a>
-    <a href="https://github.com/DeepakSingh98/latch-preview">Draft site source</a>
+    <a href="sources.html">Sources</a>
     <a data-repo-link hidden aria-disabled="true" href="get-started.html">Repository</a>
   </div>
 </footer>

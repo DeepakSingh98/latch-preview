@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="robots" content="noindex, nofollow, noarchive">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Latch Sources</title>
-<meta name="description" content="Where every number on the Latch v0 site comes from, and how established it is.">
+<meta name="description" content="Evidence files, controls and study records for Latch’s training and adaptation results.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="assets/site.css?v=draft1">
+<link rel="stylesheet" href="assets/site.css?v=12">
 <script src="assets/config.js" defer></script>
+<script src="assets/reading.js" defer></script>
 </head>
 <body>
 <div class="draft-banner"><div class="wrap">Research preview — code coming soon</div></div>
@@ -19,9 +19,8 @@
     <nav aria-label="Main">
       <ul>
         <li><a href="walkthrough.html">How it works</a></li>
-        <li><a href="get-started.html">Try Latch</a></li>
-        <li><a href="capabilities.html">Workloads</a></li>
-        <li><a href="methodology.html">Methodology</a></li>
+        <li><a href="capabilities.html">Open problems</a></li>
+        <li><a href="methodology.html">Results</a></li>
       </ul>
     </nav>
   </div>
@@ -30,31 +29,41 @@
 <main id="main">
   <div class="wrap">
     <div class="prose">
-      <p class="meta"><span>Sources</span></p>
-      <h1>Where the numbers come from</h1>
-      <p>Each number on this site maps to a measurement or a stated calculation below. Schematic diagrams carry no measured values. The linked JSON files are public measurement summaries. Internal file locations and worker identifiers are omitted from this draft. The original receipts, binaries and checkpoints remain in private storage.</p>
-      <p>The final v0 package, <code>megakernel-lab 0.9.0rc1</code>, has completed the bounded qualification listed first. The v0 rc2 package (<code>0.8.0rc1</code>), release candidate 0.7.1rc1 and donor measurements are retained separately as history; their qualification does not transfer to changed runtime bytes. The source manifest and runtime-custody records are retained privately with the release; see <a href="draft-notes.html#records">evidence availability</a>.</p>
-      <h2>Status labels</h2>
+
+      <h1>Evidence and sources</h1>
+      <p>The evidence files below contain measurements, source commits and hashes. Full reports and reproduction instructions will accompany the open-source code.</p>
+      <p>Current results use <code>megakernel-lab 0.9.0rc1</code>. Earlier releases and research branches are listed separately.</p>
+      <details class="reading-details"><summary>Measurement labels</summary>
+
       <ul class="plain">
-        <li><span class="tag pilot">Pilot</span> single seed. The small-batch pilot was later <em>not confirmed</em>; see the learning studies below.</li>
-        <li><span class="tag research">Research branch</span> a later study on a research compiler branch; not an installed-package capability and no v0 qualification.</li>
-        <li><span class="tag prov">Requalification pending</span> built with the <code>rowchain</code> compiler rule, later found to permit an arena race; rebuild and re-check before citing.</li>
-        <li><span class="tag">Computed</span> arithmetic from published specifications or parameter counts, not a measurement.</li>
-        <li><span class="tag v0">In this package</span> measured with the final package <code>0.9.0rc1</code>, with numerical, restart and timing scope stated explicitly.</li>
+        <li><span class="tag pilot">Pilot</span> A single-seed study. Follow-up experiments did not confirm the small-batch pilot’s advantage.</li>
+        <li><span class="tag research">Research branch</span> A study on a separate compiler branch. Its workload is not included in the installed package.</li>
+        <li><span class="tag prov">Requalification pending</span> Built with the <code>rowchain</code> rule before its arena race was fixed. The program needs to be rebuilt and checked.</li>
+        <li><span class="tag">Computed</span> Calculated from published specifications or parameter counts.</li>
+        <li><span class="tag v0">In this package</span> Measured with package <code>0.9.0rc1</code>. Each record gives the timing and checks performed.</li>
         <li><span class="tag ok">Verified in v0</span> checks of the earlier v0 rc2 package (<code>0.8.0rc1</code>).</li>
-        <li><span class="tag">Historical</span> a prior delivery or study; any qualification applies only to those measured binaries.</li>
-        <li><span class="tag ok">Qualified</span> passed the stated independent numerical checks for the exact binaries and states measured.</li>
-        <li><span class="tag">Measured</span> measured as described; numerical checks narrower than qualification, as stated.</li>
+        <li><span class="tag">Historical</span> An earlier delivery or study. Its checks apply to the binaries measured.</li>
+        <li><span class="tag ok">Qualified</span> The measured binaries passed the stated numerical checks at the tested states.</li>
+        <li><span class="tag">Measured</span> Timing is recorded. The accompanying numerical checks are described in the record.</li>
       </ul>
+      </details>
     </div>
 
+    <nav class="toc prose" aria-label="Evidence sections"><ol>
+      <li><a href="#src-ttq">Training time to quality</a></li>
+      <li><a href="#src-small-batch">Small-batch confirmation</a></li>
+      <li><a href="#src-tuned">Tuned batch comparison</a></li>
+      <li><a href="#src-build">Compiler build time</a></li>
+      <li><a href="#src-research">Research branches</a></li>
+      <li><a href="#src-h100">Hardware calculations</a></li>
+    </ol></nav>
     <div class="table-wrap">
       <table class="stack" id="src-final">
-        <caption>Final package <code>megakernel-lab 0.9.0rc1</code> — <a href="evidence/final-package.json">evidence extract</a>; <a href="draft-notes.html#validation">validation summary</a></caption>
+        <caption>Final package <code>megakernel-lab 0.9.0rc1</code> — <a href="evidence/final-package.json">evidence extract</a>; full validation record forthcoming with the code</caption>
         <thead><tr><th>Claim</th><th>Measured scope</th><th>Evidence</th><th>Status</th></tr></thead>
         <tbody>
-          <tr><td data-label="Claim">TinyMoE 2 × 512: 5.1×</td><td data-label="Measured scope">Complete training update, <code>--rules auto</code>: 12.57 ms Latch vs 64.52 ms compiled-grouped (fastest of four screened); 5 alternating pairs × 16 updates; second host 12.56 vs 72.01 ms</td><td data-label="Evidence"><a href="evidence/final-package.json">final-package.json</a> (<code>tinymoe-b2</code>)</td><td data-label="Status"><span class="tag v0">In this package</span>; bitwise to the v0 option set; FP64 audits u1/u32 pass; exact restart</td></tr>
-          <tr><td data-label="Claim">TinyMoE recipe Q 32 × 1024: 1.74×</td><td data-label="Measured scope">79.93 ms vs C32 compiled-grouped 139.20 ms; 5 rounds × 4 states; package compiler with the frozen recipe harness</td><td data-label="Evidence"><code>tinymoe-recipe-q</code></td><td data-label="Status"><span class="tag v0">In this package</span>; bitwise vs frozen executor, restart, 512-update continuation</td></tr>
+          <tr><td data-label="Claim">TinyMoE 2 × 512: 5.1×</td><td data-label="Measured scope">Complete training update, <code>--rules auto</code>: 12.57 ms Latch vs 64.52 ms compiled-grouped (fastest of four screened); 5 alternating pairs × 16 updates; second host 12.56 vs 72.01 ms</td><td data-label="Evidence"><a href="evidence/final-package.json">final-package.json</a> (<code>tinymoe-b2</code>)</td><td data-label="Status"><span class="tag v0">In this package</span>; update benchmark; bitwise to the v0 option set; FP64 audits u1/u32 pass; exact restart; trained-state audit fails (<a href="#src-small-batch">below</a>)</td></tr>
+          <tr><td data-label="Claim">TinyMoE recipe Q 32 × 1024: 1.74×</td><td data-label="Measured scope">79.93 ms vs C32 compiled-grouped 139.20 ms; 5 rounds × 4 states; package compiler with the frozen recipe harness</td><td data-label="Evidence"><code>tinymoe-recipe-q</code></td><td data-label="Status"><span class="tag v0">In this package</span>; bitwise vs frozen executor, restart, 512-update continuation; time to quality <a href="#src-ttq">below</a></td></tr>
           <tr><td data-label="Claim">Selective update 2 × 1024: 6.5×; batch 1: 7.3×</td><td data-label="Measured scope">10.28 vs 66.45 ms per microbatch (same-semantics compiled-grouped, same GPU); B1 8.72 vs 64.0–64.7 ms</td><td data-label="Evidence"><code>selective-b2</code>, <code>selective-b1</code></td><td data-label="Status"><span class="tag v0">In this package</span>; bitwise vs frozen pairs; restart; 512-microbatch continuation</td></tr>
           <tr><td data-label="Claim">Looped TinyMoE 1.34×</td><td data-label="Measured scope">114.82 vs 154.22 ms (compiled trunk + CUDA graph), 5 rounds × 3 states</td><td data-label="Evidence"><code>smelt-r2</code></td><td data-label="Status"><span class="tag v0">In this package</span>; bitwise vs the research program; restart</td></tr>
           <tr><td data-label="Claim">GradLev P1b 3.5× / P1 1.79×</td><td data-label="Measured scope">Complete 1,024-token adaptation block incl. prefill: 53.98 vs 189.53 ms (P1b; previous schedule 75.18); 90.36 vs 161.34 ms (P1); 1 vs 18,176 / 19,200 kernels</td><td data-label="Evidence"><code>gradlev-p1b</code>, <code>gradlev-p1</code></td><td data-label="Status"><span class="tag v0">In this package</span>; adaptation, not training; bitwise to the previous schedule incl. 1,024 held-out blocks</td></tr>
@@ -64,20 +73,67 @@
     </div>
 
     <div class="table-wrap">
+      <table class="stack" id="src-ttq">
+        <caption>Time to quality, final package, 32 × 1024 — <a href="evidence/release-learning.json">evidence extract</a></caption>
+        <thead><tr><th>Claim</th><th>Measured scope</th><th>Evidence</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td data-label="Claim">41–44% less training-update time to the same validation quality</td><td data-label="Measured scope">Per-seed ratio Latch ÷ PyTorch at 3.30: 0.592 / 0.571 / 0.558 (seeds 1740 / 2041 / 2042); mean 0.574; reduction 40.8–44.2%</td><td data-label="Evidence"><code>recipe_q.seeds[].ratio</code></td><td data-label="Status"><span class="tag v0">In this package</span>; measured full runs, not projected</td></tr>
+          <tr><td data-label="Claim">16–17 minutes vs 28–30 minutes</td><td data-label="Measured scope">Accumulated update seconds at the 3.30 crossing: Latch 1,005 / 1,021 / 958; PyTorch C32 compiled-grouped 1,697 / 1,789 / 1,716 (958 s = 16.0 min; 1,789 s = 29.8 min)</td><td data-label="Evidence"><code>recipe_q.seeds[].seconds_to_3_30</code></td><td data-label="Status"><span class="tag v0">In this package</span></td></tr>
+          <tr><td data-label="Claim">Same learning trajectory; about 80 vs 140 ms per update</td><td data-label="Measured scope">Tokens at the crossing equal on seeds 2041 and 2042; seed 1740 Latch one evaluation later (411.0M vs 394.3M). Full-run median update 79.8–80.2 vs 139.7–142.5 ms. Same-device check ratios 0.572 / 0.574 / 0.573</td><td data-label="Evidence"><code>recipe_q.seeds[]</code>, <code>recipe_q.same_device_check</code></td><td data-label="Status"><span class="tag v0">In this package</span></td></tr>
+          <tr><td data-label="Claim">Released program computes the earlier trajectory</td><td data-label="Measured scope">Seed 1740: all 80 validation evaluations of both arms bitwise equal to the earlier study's runs; Latch 1,005 s vs 1,468 s for the earlier program</td><td data-label="Evidence"><code>recipe_q.replication_seed_1740</code></td><td data-label="Status"><span class="tag v0">In this package</span></td></tr>
+          <tr><td data-label="Claim">Numerically qualified at batch 32</td><td data-label="Measured scope">FP64 gradient audits: fresh (Latch 0.013–0.014) and trained state at 327.7M tokens (Latch 0.039, PyTorch 0.047), gate 0.08; restart and cross-machine resume bitwise, both arms</td><td data-label="Evidence"><code>recipe_q.numerics</code></td><td data-label="Status"><span class="tag ok">Qualified</span> at batch 32 only</td></tr>
+          <tr><td data-label="Claim">Control is the strongest passing implementation of the release screen</td><td data-label="Measured scope">C32 compiled-grouped, microbatch 32, vocabulary chunk 8,192; 139.20 ms in the release screen. Fastest passing implementation in the release screen</td><td data-label="Evidence"><code>recipe_q.control</code>; <a href="evidence/final-package.json">final-package.json</a> (<code>tinymoe-recipe-q</code>)</td><td data-label="Status"><span class="tag v0">In this package</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="prose small mute">Report: <code>research/latch_release_learning_confirm/RESULTS.md</code> on branch <code>codex/latch-release-learning-confirm</code> @ <code>c85aae1ed</code>, final (plan frozen before any training result). Extract fields: <code>recipe_q</code>.</p>
+
+    <div class="table-wrap">
+      <table class="stack" id="src-small-batch">
+        <caption>Small batch 2 × 512, final package: results and status — <a href="evidence/release-learning.json">evidence extract</a></caption>
+        <thead><tr><th>Item</th><th>Measured scope</th><th>Evidence</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td data-label="Item">Update benchmark 5.1×</td><td data-label="Measured scope">12.57 vs 64.52 ms per complete update; not a training result</td><td data-label="Evidence"><a href="evidence/final-package.json">final-package.json</a> (<code>tinymoe-b2</code>)</td><td data-label="Status"><span class="tag v0">In this package</span></td></tr>
+          <tr><td data-label="Item">Time to quality at 2 × 512: 5.3–6.2× shorter to loss 4.10</td><td data-label="Measured scope">Release default recipe to 640,000 updates, seeds 2051 / 2052 / 2053, paired with same-batch compiled-grouped PyTorch. Seconds to 4.10: Latch 6,419 / 6,643 / 6,492; PyTorch 34,406 / 39,059 / 40,188; ratio 0.187 / 0.170 / 0.162 (mean 0.173). 3.30 reached by neither (planned target; 4.10 is the plan's fallback, the lowest target both reached on every seed)</td><td data-label="Evidence"><code>small_batch.time_to_quality</code></td><td data-label="Status">Measured; <strong>not qualified</strong> (trained-state audit below)</td></tr>
+          <tr><td data-label="Item">Fresh and early-update audits</td><td data-label="Measured scope">Updates 1 and 32 of the release example; fresh update 1 from random initialization: Latch 0.0206, PyTorch 0.0225 (gate 0.08); restart bitwise</td><td data-label="Evidence"><code>small_batch.numerics.passed</code></td><td data-label="Status">Passed</td></tr>
+          <tr><td data-label="Item">Trained-state audit</td><td data-label="Measured scope">Latch state after 320,000 updates (seed 2051): 4 of 663 tensors 0.083–0.089 &gt; 0.08; reproduces bitwise on another machine</td><td data-label="Evidence"><code>small_batch.numerics.failed</code></td><td data-label="Status"><span class="tag pilot">Failed</span></td></tr>
+          <tr><td data-label="Item">Same-state diagnosis</td><td data-label="Measured scope">Five predetermined cases: Latch fails 2, PyTorch (same state and batch) 1, BF16-rounded FP64 reference 1; mean log<sub>2</sub>(Latch ÷ PyTorch error) +0.002 over 3,021 tensors; no implementation or harness defect</td><td data-label="Evidence"><code>small_batch.diagnosis</code></td><td data-label="Status">BF16 sensitivity; gate stays failed</td></tr>
+          <tr><td data-label="Item">PyTorch's own trained state</td><td data-label="Measured scope">Audit of PyTorch's state after 320,000 updates of its seed-2051 run: pass, maximum 0.061 (final norm gain); one state</td><td data-label="Evidence"><code>small_batch.numerics.conventional_own_state_audit</code> (receipt SHA-256 recorded)</td><td data-label="Status">Passed; verdict unchanged</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="prose small mute">Diagnosis: <code>research/latch_release_learning_confirm/DIAG_A.md</code> on the same branch and commit; cases and classification rules fixed before any diagnostic observation. The PyTorch own-state audit receipt is listed in the lane's job records but not in its report tables. Extract fields: <code>small_batch</code>.</p>
+
+    <div class="table-wrap">
+      <table class="stack" id="src-tuned">
+        <caption>Tuned small batch on the final package against tuned batch-32 PyTorch — <a href="evidence/release-learning.json">evidence extract</a></caption>
+        <thead><tr><th>Claim</th><th>Measured scope</th><th>Evidence</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td data-label="Claim">About 15% fewer tokens to 3.30 on two seeds</td><td data-label="Measured scope">Latch 2 × 1024, tuned recipe: 335.5M tokens on seeds 1740 and 2042, against 394.3M for PyTorch C32 at 32 × 1024 (ratio 0.851); seed 2041 ended at 3.3027 without reaching 3.30 within its 393M-token horizon</td><td data-label="Evidence"><code>tuned_small_batch.at_3_30</code></td><td data-label="Status"><span class="tag v0">In this package</span>; measured</td></tr>
+          <tr><td data-label="Claim">About 39 minutes against 28–30</td><td data-label="Measured scope">Seconds to 3.30: Latch 2,361 / unreached / 2,341; PyTorch C32 1,697 / 1,789 / 1,716 (seeds 1740 / 2041 / 2042); ratio 1.392 / — / 1.364. At 3.50: 1.33–1.40×</td><td data-label="Evidence"><code>tuned_small_batch.seeds[]</code></td><td data-label="Status"><span class="tag v0">In this package</span>; PyTorch first on every seed</td></tr>
+          <tr><td data-label="Claim">Per-token cost 1.63×</td><td data-label="Measured scope">6.98–7.04 s per million tokens (14.28–14.41 ms per 2,048-token update) against 4.28–4.35 (139.7–142.5 ms per 32,768-token update)</td><td data-label="Evidence"><code>tuned_small_batch.per_token_cost</code></td><td data-label="Status">Measured</td></tr>
+          <tr><td data-label="Claim">Tie requires about 10.4 ms per update or about 28% fewer tokens</td><td data-label="Measured scope">10.36–10.48 ms, or 0.72–0.73× the measured tokens, at 3.30 on the two reaching seeds</td><td data-label="Evidence">Report</td><td data-label="Status"><span class="tag">Computed</span>; not run</td></tr>
+          <tr><td data-label="Claim">All tested audits pass for this program</td><td data-label="Measured scope">FP64 audits fresh (0.031 / 0.029), trained at 96,000 updates on three seeds (max 0.070) and at 163,840 (0.029), gate 0.08; exact restart and cross-machine resume bitwise; seed 1733 reproduces the study's evaluations bitwise</td><td data-label="Evidence"><code>tuned_small_batch.numerics</code></td><td data-label="Status"><span class="tag ok">Qualified</span> for this 2 × 1024 program only</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="prose small mute">Report: <code>research/latch_tuned_ttq/RESULTS.md</code> on branch <code>codex/latch-tuned-ttq</code> @ <code>5c427c2eb</code>. The PyTorch runs are the batch-32 runs in the time-to-quality table above, reused on the same seeds and initial weights.</p>
+
+    <details class="reading-details wide"><summary>Earlier v0 rc2 qualification ( 0.8.0rc1 )</summary><div class="table-wrap">
       <table class="stack" id="src-v0">
         <caption>Earlier v0 rc2 qualification (<code>0.8.0rc1</code>) — <a href="evidence/v0-qualification.json">evidence index</a></caption>
         <thead><tr><th>Check</th><th>Measured scope</th><th>Evidence</th><th>Status</th></tr></thead>
         <tbody>
-          <tr><td data-label="Check">Clean installation and compiler regressions</td><td data-label="Measured scope">382 package files; separate wheel/sdist environments; 47 selected regression files pass; final installed-wheel H100 update</td><td data-label="Evidence"><a href="draft-notes.html#validation">validation summary</a>; <a href="draft-notes.html#validation">validation summary</a></td><td data-label="Status">Verified in v0</td></tr>
-          <tr><td data-label="Check">Current TinyMoE complete-update time</td><td data-label="Measured scope">B2 × S512 unchanged recipe: 31.298166 ms Latch vs 73.430737 ms selected compiled-grouped control; 2.346× pooled-median ratio; 80 measured updates per arm</td><td data-label="Evidence"><a href="draft-notes.html#validation">validation summary</a>; <a href="draft-notes.html#validation">validation summary</a></td><td data-label="Status">Both arms pass unchanged updates 1/32 gates; exact native restart</td></tr>
-          <tr><td data-label="Check">Current cold compilation</td><td data-label="Measured scope">719.213 s B2 × S512; 724.534 s B2 × S1024 learning graph; full command including model load, capture, generation, compilation/linking; CPU32, eight workers per build</td><td data-label="Evidence"><a href="draft-notes.html#validation">validation summary</a></td><td data-label="Status">Verified in v0; no compiler-speedup claim</td></tr>
-          <tr><td data-label="Check">Representative fast examples</td><td data-label="Measured scope">Dynamic b32 and mixed fresh_pairwise; Latch/control time ratios 0.962 and 0.990; 600 event-timed updates per arm, staging excluded</td><td data-label="Evidence"><a href="draft-notes.html#validation">validation summary</a></td><td data-label="Status">Fresh/trained native and conventional audits pass</td></tr>
-          <tr><td data-label="Check">Learning software</td><td data-label="Measured scope">B2 × S1024, 128 updates on a small packed WikiText stream; exact restart; independent audits of fresh updates 1/2 only</td><td data-label="Evidence"><a href="draft-notes.html#validation">validation summary</a></td><td data-label="Status">Verified software scope; no update128 FP64 audit or learning advantage</td></tr>
+          <tr><td data-label="Check">Clean installation and compiler regressions</td><td data-label="Measured scope">382 package files; separate wheel/sdist environments; 47 selected regression files pass; final installed-wheel H100 update</td><td data-label="Evidence">Validation; regressions</td><td data-label="Status">Verified in v0</td></tr>
+          <tr><td data-label="Check">Earlier TinyMoE complete-update time</td><td data-label="Measured scope">B2 × S512 unchanged recipe: 31.298166 ms Latch vs 73.430737 ms selected compiled-grouped control; 2.346× pooled-median ratio; 80 measured updates per arm</td><td data-label="Evidence">GPU checks; audits</td><td data-label="Status">Both arms pass unchanged updates 1/32 gates; exact native restart</td></tr>
+          <tr><td data-label="Check">Earlier cold compilation</td><td data-label="Measured scope">719.213 s B2 × S512; 724.534 s B2 × S1024 learning graph; full command including model load, capture, generation, compilation/linking; CPU32, eight workers per build</td><td data-label="Evidence">Cold builds</td><td data-label="Status">Verified in v0; no compiler-speedup claim</td></tr>
+          <tr><td data-label="Check">Representative fast examples</td><td data-label="Measured scope">Dynamic b32 and mixed fresh_pairwise; Latch/control time ratios 0.962 and 0.990; 600 event-timed updates per arm, staging excluded</td><td data-label="Evidence">Fast-example checks</td><td data-label="Status">Fresh/trained native and conventional audits pass</td></tr>
+          <tr><td data-label="Check">Learning software</td><td data-label="Measured scope">B2 × S1024, 128 updates on a small packed WikiText stream; exact restart; independent audits of fresh updates 1/2 only</td><td data-label="Evidence">Learning machinery</td><td data-label="Status">Verified software scope; no update128 FP64 audit or learning advantage</td></tr>
         </tbody>
       </table>
-    </div>
+    </div></details>
 
-    <div class="table-wrap">
+    <details class="reading-details wide"><summary>Historical pilot and donor measurements cited on this site</summary><div class="table-wrap">
       <table class="stack">
         <caption>Historical pilot and donor measurements cited on this site</caption>
         <thead>
@@ -91,7 +147,7 @@
           <tr><td data-label="Claim">Savings across loss levels</td><td data-label="Value">Latch 2 × 1024: 2.67–3.2× fewer tokens, 0.574–0.688× time over eight levels; 1 × 1024: 1.002–1.199× time</td><td data-label="Evidence"><a href="evidence/smallbatch-pilot.json">smallbatch-pilot.json</a> <code>ratio_ranges_over_levels</code></td><td data-label="Status"><span class="tag pilot">Pilot</span> not confirmed</td></tr>
           <tr><td data-label="Claim">Per-token cost of small updates</td><td data-label="Value">Same-GPU paired: A 1,215–1,221 ms per 131,072-token update; Latch 2 × 1024 35.3–35.4 ms per 2,048 tokens (1.86× A's time per token)</td><td data-label="Evidence"><a href="evidence/smallbatch-pilot.json">smallbatch-pilot.json</a> <code>same_gpu_paired_throughput</code></td><td data-label="Status"><span class="tag">Measured</span></td></tr>
           <tr><td data-label="Claim">Final loss at equal tokens</td><td data-label="Value">3.5376 (Latch 2 × 1024) vs 4.0246 (PyTorch) after 131,072,000 tokens, 2,048 dev windows</td><td data-label="Evidence"><a href="evidence/smallbatch-pilot.json">smallbatch-pilot.json</a> <code>selected</code></td><td data-label="Status"><span class="tag pilot">Pilot</span> not confirmed</td></tr>
-          <tr><td data-label="Claim">Longer-horizon study and direct replication are separate</td><td data-label="Value">Completed 2026-10-15: same-schedule fresh seeds repeat (0.45–0.70×); schedule-only change reverses (1.08–1.68×); tuned schedules: conventional first at every target. See the learning-study table below.</td><td data-label="Evidence"><a href="#src-learning">Learning studies</a>; v0 classification: <a href="draft-notes.html#learning">learning-study summary</a> (frozen before these results)</td><td data-label="Status"><span class="tag pilot">Pilot</span> not confirmed</td></tr>
+          <tr><td data-label="Claim">Longer-horizon study and direct replication are separate</td><td data-label="Value">Completed 2026-10-15: same-schedule fresh seeds repeat (0.45–0.70×); schedule-only change reverses (1.08–1.68×); tuned schedules: conventional first at every target. See the learning-study table below.</td><td data-label="Evidence"><a href="#src-learning">Learning studies</a>; v0 classification: schedule-studies.json (frozen before these results)</td><td data-label="Status"><span class="tag pilot">Pilot</span> not confirmed</td></tr>
           <tr id="src-kernels"><td data-label="Claim">Kernels per update at the published batch</td><td data-label="Value">Compiled PyTorch 69,394; reconstructed Hugging Face Trainer 228,417; Latch 16 generated + 17 fills</td><td data-label="Evidence"><a href="evidence/tinymoe-execution.json">tinymoe-execution.json</a> <code>accumulation_S1024</code></td><td data-label="Status"><span class="tag">Measured</span></td></tr>
           <tr><td data-label="Claim">One kernel, 132 blocks, plus 3 fills and 5 copies</td><td data-label="Value">Census of qualified TinyMoE updates</td><td data-label="Evidence"><a href="evidence/tinymoe-execution.json">tinymoe-execution.json</a></td><td data-label="Status"><span class="tag ok">Qualified</span></td></tr>
           <tr><td data-label="Claim">About 32,000 captured operations</td><td data-label="Value">32,010 operations (published-batch program)</td><td data-label="Evidence"><a href="evidence/tinymoe-build-times.json">tinymoe-build-times.json</a></td><td data-label="Status"><span class="tag">Measured</span></td></tr>
@@ -101,52 +157,53 @@
           <tr><td data-label="Claim">Granite 1.65–1.73× slower</td><td data-label="Value">161.45 vs 97.89 ms; 2,255.6 vs 1,304.9 ms</td><td data-label="Evidence"><a href="evidence/granite.json">granite.json</a></td><td data-label="Status"><span class="tag">Measured</span> not qualified</td></tr>
         </tbody>
       </table>
-    </div>
+    </div></details>
 
 
-    <div class="table-wrap">
+    <details class="reading-details wide"><summary>Earlier small-batch learning studies</summary><div class="table-wrap">
       <table class="stack" id="src-learning">
-        <caption>Small-batch learning studies (walkthrough §7). Reports are on research branches and are not part of the v0 export</caption>
+        <caption>Earlier small-batch learning studies</caption>
         <thead><tr><th>Study</th><th>Value</th><th>Report</th><th>Status</th></tr></thead>
         <tbody>
           <tr><td data-label="Study">Pilot, seed 1729, 131M-token schedule</td><td data-label="Value">B2/A time to dev 4.187: 0.69 (660.75 vs 959.81 s); tokens 37.7M vs 100.7M</td><td data-label="Report"><a href="evidence/smallbatch-pilot.json">smallbatch-pilot.json</a>; small-batch RESULTS.md</td><td data-label="Status"><span class="tag pilot">Pilot</span> not confirmed</td></tr>
-          <tr><td data-label="Study">Direct replication, seeds 1730–1732, same schedule</td><td data-label="Value">At 4.187: s1732 0.70; A did not reach 4.187 on s1730/s1731. All pilot levels: 0.45–0.70× where both reached</td><td data-label="Report"><span>Internal research report (not published in this draft)</span>, branch <code>codex/latch-tinymoe-smallbatch</code> @ <code>c1ef72cae</code></td><td data-label="Status"><span class="tag research">Research branch</span></td></tr>
+          <tr><td data-label="Study">Direct replication, seeds 1730–1732, same schedule</td><td data-label="Value">At 4.187: s1732 0.70; A did not reach 4.187 on s1730/s1731. All pilot levels: 0.45–0.70× where both reached</td><td data-label="Report"><code>research/latch_tinymoe_smallbatch/RESULTS.md</code>, branch <code>codex/latch-tinymoe-smallbatch</code> @ <code>c1ef72cae</code></td><td data-label="Status"><span class="tag research">Research branch</span></td></tr>
           <tr><td data-label="Study">Schedule changed only, 1.05B-token horizon</td><td data-label="Value">At 4.187: 1.33 / 1.54 / 1.63 / 1.51 (s1729–s1732); 1.08–1.68× across pilot levels</td><td data-label="Report">Same report</td><td data-label="Status"><span class="tag research">Research branch</span></td></tr>
           <tr><td data-label="Study">Full 1.05B-token run, seeds 1730–1732</td><td data-label="Value">To dev 3.30: B2 7,660 / 7,562 / 7,566 s vs A 4,285 / 4,473 / 4,677 s (1.79 / 1.69 / 1.62); A first at all eight targets</td><td data-label="Report">Same report</td><td data-label="Status"><span class="tag research">Research branch</span></td></tr>
           <tr><td data-label="Study">Independently tuned schedules, seeds 1733–1735</td><td data-label="Value">To 3.30: B2 6,581 / unreached / 6,040 s vs A 4,151 / 4,605 / 4,101 s (1.59 / — / 1.47); to 3.50: 1.42 / 1.27 / 1.45</td><td data-label="Report">Same report, “Update 2026-10-15”</td><td data-label="Status"><span class="tag research">Research branch</span></td></tr>
-          <tr><td data-label="Study">Latch B32 vs strongest PyTorch B128 (4 × 32), seeds 1740–1742</td><td data-label="Value">To 3.30: 1,468 / 1,428 / 1,459 s vs 1,781 / 1,751 / 1,915 s (0.82 / 0.82 / 0.76); PyTorch B32 on s1740: 1,704 s</td><td data-label="Report"><span>Internal research report (not published in this draft)</span>, branch <code>codex/tinymoe-batch-frontier</code> @ <code>f9268c21b</code></td><td data-label="Status"><span class="tag research">Research branch</span>; built before the <code>rowchain</code> rule</td></tr>
+          <tr><td data-label="Study">Latch B32 vs strongest PyTorch B128 (4 × 32), seeds 1740–1742</td><td data-label="Value">To 3.30: 1,468 / 1,428 / 1,459 s vs 1,781 / 1,751 / 1,915 s (0.82 / 0.82 / 0.76); PyTorch B32 on s1740: 1,704 s</td><td data-label="Report"><code>research/latch_tinymoe_batch_frontier/RESULTS.md</code>, branch <code>codex/tinymoe-batch-frontier</code> @ <code>f9268c21b</code></td><td data-label="Status"><span class="tag hist">Historical</span> <span class="tag research">Research branch</span>; built before the <code>rowchain</code> rule; different denominator from the current result</td></tr>
           <tr><td data-label="Study">Per-token cost of the pilot arms</td><td data-label="Value">PyTorch 16 × 8 × 1024: 9.17 s per million tokens; same batch as 4 × 32: 4.10 s; Latch 2 × 1024: 1.86× the pilot arm's time per token</td><td data-label="Report">Batch-frontier and small-batch reports</td><td data-label="Status">Measured</td></tr>
         </tbody>
       </table>
-    </div>
+    </div></details>
 
-    <div class="table-wrap">
+    <details class="reading-details wide"><summary>Research-branch measurements</summary><div class="table-wrap">
       <table class="stack" id="src-research">
         <caption>Research-branch measurements — not package qualification (packaged workloads above supersede their research rows)</caption>
         <thead><tr><th>Claim</th><th>Value</th><th>Report</th><th>Status</th></tr></thead>
         <tbody>
-          <tr><td data-label="Claim">TinyMoE on a research compiler: 4.52× / 2.62× / 1.74×</td><td data-label="Value">B2 / B8 / B32 × 1024 vs strongest compiled control; B8 28.69 vs 75.20 ms</td><td data-label="Report"><span>Internal research report (not published in this draft)</span>, <code>codex/tinymoe-finer-transfer</code> @ <code>72644c71f</code></td><td data-label="Status"><span class="tag research">Research branch</span>; arena fix included</td></tr>
-          <tr><td data-label="Claim">GradLev 1.67× / 2.52×</td><td data-label="Value">96.1 vs 160.9 ms (P1); 74.9 vs 188.6 ms (P1b) per 1,024-step block; 1 vs 19,200 kernels</td><td data-label="Report"><span>Internal research report (not published in this draft)</span>, <code>codex/latch-gradlev</code> @ <code>df184a5f2</code></td><td data-label="Status"><span class="tag research">Research branch</span>; superseded by the package row above</td></tr>
-          <tr><td data-label="Claim">Looped TinyMoE 1.35×</td><td data-label="Value">114.74 vs 155.00 ms; compiled trunk 169.60; per-region 197.32; learning 1.31× sooner to 3.50 / 3.30 / 3.20</td><td data-label="Report"><span>Internal research report (not published in this draft)</span>, <code>codex/smelt-latch</code> @ <code>2c9ddb2e3</code></td><td data-label="Status"><span class="tag research">Research branch</span>; rebuilt in this package, bitwise equal</td></tr>
-          <tr><td data-label="Claim">E2-TTT-MLP about 3× slower</td><td data-label="Value">Latch default build 9.124 s vs max-autotune 3.050 s and published code 8.238 s (same H100); combined-rules build 8.787 vs 3.134 s on a second H100</td><td data-label="Report"><span>Internal research report (not published in this draft)</span>, <code>codex/latch-e2ttt-outer</code> @ <code>172931a35</code></td><td data-label="Status"><span class="tag research">Research branch</span>; combined build <span class="tag prov">Requalification pending</span></td></tr>
-          <tr><td data-label="Claim">Local learning 1.33–1.46× slower</td><td data-label="Value">E2E 97.28 vs 66.75 ms; K = 4 181.32 vs 136.66 ms</td><td data-label="Report"><span>Internal research report (not published in this draft)</span>, <code>codex/local-learning-latch</code> @ <code>7b78eef39</code></td><td data-label="Status"><span class="tag prov">Requalification pending</span></td></tr>
-          <tr><td data-label="Claim">TinyMoE online adaptation 1.26–1.67× slower</td><td data-label="Value">Complete prediction-plus-adaptation clock vs compiled, CUDA-graph-replayed control</td><td data-label="Report"><span>Internal research report (not published in this draft)</span>, <code>codex/latch-tinymoe-adapt</code> @ <code>a70e5959a</code></td><td data-label="Status"><span class="tag research">Research branch</span></td></tr>
+          <tr><td data-label="Claim">TinyMoE on a research compiler: 4.52× / 2.62× / 1.74×</td><td data-label="Value">B2 / B8 / B32 × 1024 vs strongest compiled control; B8 28.69 vs 75.20 ms</td><td data-label="Report"><code>research/tinymoe_finer_transfer/RESULTS.md</code>, <code>codex/tinymoe-finer-transfer</code> @ <code>72644c71f</code></td><td data-label="Status"><span class="tag research">Research branch</span>; arena fix included</td></tr>
+          <tr><td data-label="Claim">GradLev 1.67× / 2.52×</td><td data-label="Value">96.1 vs 160.9 ms (P1); 74.9 vs 188.6 ms (P1b) per 1,024-step block; 1 vs 19,200 kernels</td><td data-label="Report"><code>research/latch_gradlev/RESULTS.md</code>, <code>codex/latch-gradlev</code> @ <code>df184a5f2</code></td><td data-label="Status"><span class="tag research">Research branch</span>; superseded by the package row above</td></tr>
+          <tr><td data-label="Claim">Looped TinyMoE 1.35×</td><td data-label="Value">114.74 vs 155.00 ms; compiled trunk 169.60; per-region 197.32; learning 1.31× sooner to 3.50 / 3.30 / 3.20</td><td data-label="Report"><code>research/smelt_latch/RESULTS.md</code>, <code>codex/smelt-latch</code> @ <code>2c9ddb2e3</code></td><td data-label="Status"><span class="tag research">Research branch</span>; rebuilt in this package, bitwise equal</td></tr>
+          <tr><td data-label="Claim">E2-TTT-MLP about 3× slower</td><td data-label="Value">Latch default build 9.124 s vs max-autotune 3.050 s and published code 8.238 s (same H100); combined-rules build 8.787 vs 3.134 s on a second H100</td><td data-label="Report"><code>research/latch_e2ttt_outer/RESULTS.md</code>, <code>codex/latch-e2ttt-outer</code> @ <code>172931a35</code></td><td data-label="Status"><span class="tag research">Research branch</span>; combined build <span class="tag prov">Requalification pending</span></td></tr>
+          <tr><td data-label="Claim">Local learning 1.33–1.46× slower</td><td data-label="Value">E2E 97.28 vs 66.75 ms; K = 4 181.32 vs 136.66 ms</td><td data-label="Report"><code>research/local_learning_latch/RESULTS.md</code>, <code>codex/local-learning-latch</code> @ <code>7b78eef39</code></td><td data-label="Status"><span class="tag prov">Requalification pending</span></td></tr>
+          <tr id="src-skip-gate"><td data-label="Claim">Skips with attention gates: modest token saving, not faster</td><td data-label="Value">Looped finer-expert TinyMoE, 2 × 1024, seeds 1911–1913: tokens to 3.30 (interpolated) 321.7M vs 328.3M for the base recipe; test −0.008; 26.3 vs 24.5 ms per update. Skips alone hurt; gates alone mixed. One trained-state audit update fails (0.101 vs 0.08). <code>rpackb</code> gives wrong key-projection gradients with gated attention</td><td data-label="Report"><code>research/tinymoe_skip_gate/RESULTS.md</code>, <code>codex/latch-skip-gate</code> @ <code>b26f03d32</code>; <a href="evidence/research-skip-gate.json">extract</a></td><td data-label="Status"><span class="tag research">Research branch</span>; not integrated</td></tr>
+          <tr><td data-label="Claim">TinyMoE online adaptation 1.26–1.67× slower</td><td data-label="Value">Complete prediction-plus-adaptation clock vs compiled, CUDA-graph-replayed control</td><td data-label="Report"><code>research/latch_tinymoe_adapt/RESULTS.md</code>, <code>codex/latch-tinymoe-adapt</code> @ <code>a70e5959a</code></td><td data-label="Status"><span class="tag research">Research branch</span></td></tr>
         </tbody>
       </table>
-    </div>
+    </div></details>
 
     <div class="table-wrap">
       <table class="stack" id="src-h100">
         <caption>Computed figures in the walkthrough (§4)</caption>
         <thead><tr><th>Figure</th><th>Calculation</th><th>Source</th><th>Status</th></tr></thead>
         <tbody>
-          <tr><td data-label="Figure">TinyMoE FP32 weights + two Adam moments: 2.40 GB</td><td data-label="Calculation">199,837,056 × 4 bytes × 3 = 2,398,044,672 bytes</td><td data-label="Source">Parameter count: <a href="draft-notes.html#validation">validation summary</a></td><td data-label="Status"><span class="tag">Computed</span></td></tr>
-          <tr><td data-label="Figure">H100 on-chip storage ≈ 0.12 GB</td><td data-label="Calculation">132 SMs × (64K × 4-byte registers + 256 KB combined L1/shared memory) + 50 MB L2 ≈ 119–122 MB</td><td data-label="Source"><a href="https://docs.nvidia.com/cuda/hopper-tuning-guide/index.html">NVIDIA Hopper Tuning Guide</a>; 132 SMs from <a href="draft-notes.html#validation">validation summary</a></td><td data-label="Status"><span class="tag">Computed</span></td></tr>
+          <tr><td data-label="Figure">TinyMoE FP32 weights + two Adam moments: 2.40 GB</td><td data-label="Calculation">199,837,056 × 4 bytes × 3 = 2,398,044,672 bytes</td><td data-label="Source">Parameter count: tinymoe-gpu.json</td><td data-label="Status"><span class="tag">Computed</span></td></tr>
+          <tr><td data-label="Figure">H100 on-chip storage ≈ 0.12 GB</td><td data-label="Calculation">132 SMs × (64K × 4-byte registers + 256 KB combined L1/shared memory) + 50 MB L2 ≈ 119–122 MB</td><td data-label="Source"><a href="https://docs.nvidia.com/cuda/hopper-tuning-guide/index.html">NVIDIA Hopper Tuning Guide</a>; 132 SMs from v0 validation</td><td data-label="Status"><span class="tag">Computed</span></td></tr>
         </tbody>
       </table>
     </div>
 
-    <div class="table-wrap">
+    <details class="reading-details wide"><summary>Historical capability catalogue evidence</summary><div class="table-wrap">
       <table class="stack">
         <caption>Historical capability catalogue evidence — not new v0 qualification</caption>
         <thead>
@@ -161,15 +218,14 @@
           <tr><td data-label="Entries">Small-batch learning</td><td data-label="Evidence"><a href="evidence/smallbatch-pilot.json">smallbatch-pilot.json</a></td><td data-label="Originating report">Original-schedule pilot plan/analysis and separate longer-horizon freeze; follow-ups above</td><td data-label="Status"><span class="tag pilot">Pilot</span> not confirmed</td></tr>
         </tbody>
       </table>
-    </div>
+    </div></details>
   </div>
 </main>
 
 <footer class="site-footer">
   <div class="wrap">
     <span>Latch v0 research preview</span>
-    <a href="sources.html">Sources for every number</a>
-    <a href="https://github.com/DeepakSingh98/latch-preview">Draft site source</a>
+    <a href="sources.html">Sources</a>
     <a data-repo-link hidden aria-disabled="true" href="get-started.html">Repository</a>
   </div>
 </footer>

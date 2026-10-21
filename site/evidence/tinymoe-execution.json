@@ -1,62 +1,81 @@
 {
-  "schema": "latch-site-evidence-v1",
-  "title": "TinyMoE same-batch complete-update time: Latch vs compiled-grouped PyTorch (same H100, paired)",
-  "scope": "5 alternating pairs x 16 measured updates per arm (80 per arm), 4 warmups; clock includes backend staging, routing, forward/backward, clipping, AdamW, active EMA; WikiText-103 continued training from public weights; 400-update qualified recipes",
-  "qualification": "12 full-update FP64 audit points pass; exact 199->400 restart; heldout evaluation; qualification binds the exact binaries",
-  "launch_census": "per staging-inclusive update: 1 generated latch_ops kernel (132 blocks), 3 scalar-fill kernels, 4 DtoD copies, 1 HtoD copy, 0 memsets",
-  "rows": [
-    {
-      "case": "B1S256 unchanged, fresh",
-      "compiled_grouped_ms": 64.524307,
-      "latch_ms": 24.077761,
-      "control_over_latch": 2.6798
-    },
-    {
-      "case": "B1S256 active supervision, fresh",
-      "compiled_grouped_ms": 64.683762,
-      "latch_ms": 27.355829,
-      "control_over_latch": 2.3645
-    },
-    {
-      "case": "B1S256 steady EMA, checkpoint 199",
-      "compiled_grouped_ms": 63.982451,
-      "latch_ms": 26.374099,
-      "control_over_latch": 2.426
-    },
-    {
-      "case": "B2S512 unchanged, fresh",
-      "compiled_grouped_ms": 66.350627,
-      "latch_ms": 30.556191,
-      "control_over_latch": 2.1714
-    },
-    {
-      "case": "B2S512 active supervision, fresh",
-      "compiled_grouped_ms": 69.150473,
-      "latch_ms": 33.462464,
-      "control_over_latch": 2.0665
-    },
-    {
-      "case": "B2S512 steady EMA, checkpoint 199",
-      "compiled_grouped_ms": 67.836608,
-      "latch_ms": 32.173877,
-      "control_over_latch": 2.1084
-    }
-  ],
-  "accumulation_S1024": {
-    "title": "Published TinyMoE batch: 16 x 8 x 1024 tokens per update (same H100, 3 rounds x 20 updates)",
-    "hf_trainer_ms": 6036.9,
-    "compiled_grouped_ga_ms": 1088.4,
-    "latch_ms": 977.2,
-    "latch_vs_compiled": 1.114,
-    "latch_vs_hf_trainer": 6.18,
-    "kernels_per_update": {
-      "latch": "33 (16 generated + 17 scalar fills)",
-      "compiled": 69394,
-      "hf_trainer": 228417
-    },
-    "audit": "one complete accumulated update: 16/16 FP64 microbatch audits + accumulation, clip and AdamW formula pass; no trajectory/restart claim"
+ "schema": "latch-site-evidence-v1",
+ "title": "TinyMoE same-batch complete-update time: Latch vs compiled-grouped PyTorch (same H100, paired)",
+ "scope": "5 alternating pairs x 16 measured updates per arm (80 per arm), 4 warmups; clock includes backend staging, routing, forward/backward, clipping, AdamW, active EMA; WikiText-103 continued training from public weights; 400-update qualified recipes",
+ "qualification": "12 full-update FP64 audit points pass; exact 199->400 restart; heldout evaluation; qualification binds the exact binaries",
+ "launch_census": "per staging-inclusive update: 1 generated latch_ops kernel (132 blocks), 3 scalar-fill kernels, 4 DtoD copies, 1 HtoD copy, 0 memsets",
+ "rows": [
+  {
+   "case": "B1S256 unchanged, fresh",
+   "compiled_grouped_ms": 64.524307,
+   "latch_ms": 24.077761,
+   "control_over_latch": 2.6798
   },
-  "evidence_kind": "historical",
-  "v0_scope": "Historical source measurements; not new qualification of the integrated v0 runtime. Current checks are indexed in v0-qualification.json.",
-  "draft_note": "Public measurement summary. Internal source paths, worker IDs and receipt locations are omitted from this draft; the originals are retained privately."
+  {
+   "case": "B1S256 active supervision, fresh",
+   "compiled_grouped_ms": 64.683762,
+   "latch_ms": 27.355829,
+   "control_over_latch": 2.3645
+  },
+  {
+   "case": "B1S256 steady EMA, checkpoint 199",
+   "compiled_grouped_ms": 63.982451,
+   "latch_ms": 26.374099,
+   "control_over_latch": 2.426
+  },
+  {
+   "case": "B2S512 unchanged, fresh",
+   "compiled_grouped_ms": 66.350627,
+   "latch_ms": 30.556191,
+   "control_over_latch": 2.1714
+  },
+  {
+   "case": "B2S512 active supervision, fresh",
+   "compiled_grouped_ms": 69.150473,
+   "latch_ms": 33.462464,
+   "control_over_latch": 2.0665
+  },
+  {
+   "case": "B2S512 steady EMA, checkpoint 199",
+   "compiled_grouped_ms": 67.836608,
+   "latch_ms": 32.173877,
+   "control_over_latch": 2.1084
+  }
+ ],
+ "accumulation_S1024": {
+  "title": "Published TinyMoE batch: 16 x 8 x 1024 tokens per update (same H100, 3 rounds x 20 updates)",
+  "hf_trainer_ms": 6036.9,
+  "compiled_grouped_ga_ms": 1088.4,
+  "latch_ms": 977.2,
+  "latch_vs_compiled": 1.114,
+  "latch_vs_hf_trainer": 6.18,
+  "kernels_per_update": {
+   "latch": "33 (16 generated + 17 scalar fills)",
+   "compiled": 69394,
+   "hf_trainer": 228417
+  },
+  "audit": "one complete accumulated update: 16/16 FP64 microbatch audits + accumulation, clip and AdamW formula pass; no trajectory/restart claim",
+  "source": {
+   "branch": "codex/latch-tinymoe-ga",
+   "commit": "76d980e07e71093ab3b0aeadf03fc292763473c6",
+   "path": "research/latch_tinymoe_ga/RESULTS.md",
+   "sha256": "0ba033bff9e4e45e0d3678a4470460dff233a0a22ecb2aaa4bbde2d7fe0a187c"
+  }
+ },
+ "sources": [
+  {
+   "branch": "codex/latch-tinymoe",
+   "commit": "b0bc72fa69d1199f6339489d49ab226372d042ea",
+   "path": "research/latch_tinymoe/HANDOFF.md",
+   "sha256": "1fc9983e3bd632119d1c023320bae9ff5a6c422fe599099512b9a5fce792adb9"
+  },
+  {
+   "branch": "codex/latch-tinymoe",
+   "commit": "b0bc72fa69d1199f6339489d49ab226372d042ea",
+   "path": "examples/tinymoe/README.md",
+   "sha256": "9baaaaff0cc01dd571e24d1cf27db835affaf27feae042fd162c7cfe8a75c889"
+  }
+ ],
+ "evidence_kind": "historical",
+ "v0_scope": "Historical source measurements; not new qualification of the integrated v0 runtime. Current checks are indexed in v0-qualification.json."
 }

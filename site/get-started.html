@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="robots" content="noindex, nofollow, noarchive">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Try Latch</title>
-<meta name="description" content="Repository, requirements, installation and first commands for the Latch v0 research preview.">
+<title>Latch — Code coming soon</title>
+<meta name="description" content="Latch research preview. The compiler code and runnable examples are coming soon.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="assets/site.css?v=draft1">
+<link rel="stylesheet" href="assets/site.css?v=12">
 <script src="assets/config.js" defer></script>
+<script src="assets/reading.js" defer></script>
 </head>
 <body>
 <div class="draft-banner"><div class="wrap">Research preview — code coming soon</div></div>
@@ -19,9 +19,8 @@
     <nav aria-label="Main">
       <ul>
         <li><a href="walkthrough.html">How it works</a></li>
-        <li><a href="get-started.html" aria-current="page">Try Latch</a></li>
-        <li><a href="capabilities.html">Workloads</a></li>
-        <li><a href="methodology.html">Methodology</a></li>
+        <li><a href="capabilities.html">Open problems</a></li>
+        <li><a href="methodology.html">Results</a></li>
       </ul>
     </nav>
   </div>
@@ -29,122 +28,19 @@
 
 <main id="main">
   <div class="wrap">
-    <div class="prose">
-      <p class="meta"><span>Try Latch</span></p>
-      <h1>Tested installation and examples</h1>
-
-      <h2>Repository</h2>
-      <p><a data-repo-link hidden aria-disabled="true" href="get-started.html">Latch on GitHub</a></p>
-      <p data-repo-pending class="mute">We intend to release Latch as open source. The repository link will appear here when the code is public.</p>
-      <p>This page describes the final research-preview package, <code>megakernel-lab 0.9.0rc1</code>. It has not been published: the license for the original code and the repository location are still to be decided. See the <a href="draft-notes.html#publication">publication status</a> and <a href="draft-notes.html#scope">package scope</a>.</p>
-
-      <h2>Requirements</h2>
-      <ul class="plain">
-        <li>Linux, Python 3.12, PyTorch 2.9.1 built for CUDA 12.8.</li>
-        <li>CUDA 12.8 toolkit with <code>nvcc</code>, <code>nvlink</code> and <code>cuobjdump</code>, a host C++ compiler and Python development headers.</li>
-        <li>An NVIDIA H100 80GB to run programs. Compilation runs on a CPU-only machine (or on the GPU host with <code>CUDA_VISIBLE_DEVICES=</code>); the TinyMoE example builds in about 5 minutes on 64 vCPUs with eight compiler workers.</li>
-        <li>Built artifacts must stay at the same absolute path when moved between the build and training machines.</li>
-      </ul>
-
-      <h2>Install</h2>
-<pre><code>python3.12 -m venv .venv
-. .venv/bin/activate
-python -m pip install torch==2.9.1 --index-url https://download.pytorch.org/whl/cu128
-python -m pip install "megakernel_lab-0.9.0rc1-py3-none-any.whl[tinymoe]"
-python -I -m megakernel_lab.fast_examples list</code></pre>
-      <p class="small mute">Run this from the directory containing the supplied wheel. The source archive also supports <code>python -m pip install ".[tinymoe]"</code>. <code>python -I</code> makes sure the installed package, not a source checkout, is used.</p>
-
-      <h2>A first complete training update</h2>
-      <p>This small example compiles a two-layer MLP's full training update on CPU, times it against compiled PyTorch on an H100, and checks the saved states against an independent CPU reference.</p>
-<pre><code>export LATCH_FAST_ROOT=/work/latch-fast
-export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
-export TORCHINDUCTOR_COMPILE_THREADS=1 MAX_JOBS=1
-
-# CPU: capture the model and compile its training kernel
-CUDA_VISIBLE_DEVICES= python -I -m megakernel_lab.fast_examples prepare dynamic matrix_bf16-b32 --variants latch
-
-# H100: time engine.step against compiled/captured PyTorch; staging is excluded
-python -I -m megakernel_lab.fast_examples compare dynamic matrix_bf16-b32 --rounds 2 --variants latch
-
-# CPU: audit saved states, then report
-CUDA_VISIBLE_DEVICES= python -I -m megakernel_lab.fast_examples verify dynamic matrix_bf16-b32 --workers 1 --variants latch
-python -I -m megakernel_lab.fast_examples report dynamic matrix_bf16-b32 --variants latch</code></pre>
-      <p>Other families: <code>mlp</code>, <code>ordinary</code>, <code>ffn</code>, <code>mixed</code>, <code>adaptive</code> and <code>energy</code>. The <a href="capabilities.html">catalogue</a> lists the tested cases and how each compares.</p>
-
-      <h2 id="run-it">Run the examples</h2>
-      <p>Four examples run end to end from the source archive's <code>examples/</code> directory: TinyMoE-200M training, TinyMoE with a selective update cadence, SMELT-style looped TinyMoE (all complete training updates), and GradLev adaptation of GPT-2's final MLP (an adaptation loop, not training). Compile on a CPU-only machine, or on the GPU host with <code>CUDA_VISIBLE_DEVICES=</code>; run on an H100. Keep built artifacts at the same absolute path on both machines. Every command below was run from a fresh environment with the built wheel.</p>
-        <p class="code-label">TinyMoE-200M: complete training update at 2 × 512 tokens</p>
-<pre><code>export TINYMOE_ROOT=/work/tinymoe
-bash examples/tinymoe/quickstart.sh prepare     # pinned model + small WikiText split (CPU, internet)
-bash examples/tinymoe/quickstart.sh build       # one training kernel, --rules auto (CPU)
-bash examples/tinymoe/quickstart.sh train       # 32 updates, checkpoint at 15 (H100)
-bash examples/tinymoe/quickstart.sh restart     # resume 15 → 32 in a new process
-bash examples/tinymoe/quickstart.sh compare-restart
-bash examples/tinymoe/quickstart.sh screen      # four conventional implementations
-bash examples/tinymoe/quickstart.sh benchmark   # five alternating pairs vs compiled PyTorch</code></pre>
-        <p class="code-label">Selective update: experts every 16 microbatches, shared weights every microbatch</p>
-<pre><code>export SELECTIVE_ROOT=/work/selective
-bash examples/selective_update/quickstart.sh prepare
-bash examples/selective_update/quickstart.sh build          # accumulate and apply programs (CPU)
-bash examples/selective_update/quickstart.sh train          # 64 microbatches (H100)
-bash examples/selective_update/quickstart.sh restart
-bash examples/selective_update/quickstart.sh compare-restart
-bash examples/selective_update/quickstart.sh conventional   # same semantics, compiled PyTorch</code></pre>
-        <p class="code-label">SMELT-style looped TinyMoE (8 × 512 example)</p>
-<pre><code>export SMELT_ROOT=/work/smelt
-bash examples/smelt_looped/quickstart.sh prepare
-bash examples/smelt_looped/quickstart.sh build
-bash examples/smelt_looped/quickstart.sh train
-bash examples/smelt_looped/quickstart.sh conventional
-bash examples/smelt_looped/quickstart.sh restart
-bash examples/smelt_looped/quickstart.sh compare-restart</code></pre>
-        <p class="code-label">GradLev: causal adaptation of GPT-2's final MLP (one H100)</p>
-<pre><code>export GRADLEV_ROOT=/work/gradlev
-bash examples/gradlev/quickstart.sh prepare     # GPT-2 + held-out FineWeb-Edu windows
-bash examples/gradlev/quickstart.sh build       # seconds; GRADLEV_POLICY=P1b for the fused head
-bash examples/gradlev/quickstart.sh run
-bash examples/gradlev/quickstart.sh conventional
-bash examples/gradlev/quickstart.sh benchmark
-bash examples/gradlev/quickstart.sh restart</code></pre>
-        <p>Each example's README lists the exact arguments, expected outputs and limits. A freshly built kernel is a new binary: run its checks before treating its results as qualified. The <a href="draft-notes.html#commands">command-guide status</a> includes the CPU audit commands; the <a href="draft-notes.html#commands">command-guide status</a> packages the learning tools, whose software check does not reproduce any learning study. Measured results for these examples are on the <a href="methodology.html#results">methodology page</a>.</p>
-        <h2 id="what-to-change">What you can change today</h2>
-        <p>Through recapture and rebuild, with the v0 TinyMoE adapter: the optimizer (pure tensor update rules such as AdamW variants, gradient accumulation and weight averaging), extra loss terms such as intermediate-layer readouts, batch and sequence length within 256–1,024 tokens in steps of 128, and learning-rate schedules staged at run time without rebuilding.</p>
-        <p>Where changes may fail or disappoint: unsupported operations are rejected; larger shapes can exceed planned shared memory; large batches and long sequences shrink or reverse the advantage; new architectures need adapter and often compiler work; general multi-GPU training is not part of the package. Every new build is a new binary that needs its own checks. See <a href="capabilities.html">the capability catalogue</a>.</p>
-
-      <h2 id="command-status">Command status</h2>
-      <p>The final package passed clean wheel/sdist installation in fresh environments, the compiler test suite (only the 12 known pre-existing failures), every packaged example run from the installed wheel, H100 bitwise and restart checks and independent CPU audits. Verification is scoped to the exact cases below. See <a href="draft-notes.html#validation">validation summary</a> and the <a href="evidence/final-package.json">evidence extract</a>.</p>
-    </div>
-
-    <div class="table-wrap">
-      <table class="stack">
-        <thead>
-          <tr><th>Command</th><th>Tested scope</th><th>Status</th></tr>
-        </thead>
-        <tbody>
-          <tr><td data-label="Command">Wheel/source installation; <code>latch-fast list</code>; <code>latch-tinymoe build --help</code></td><td data-label="Tested scope">Fresh environments for wheel and sdist; installed files identical to each other and to the exported source; package-membership check</td><td data-label="Status"><span class="tag v0">In this package</span></td></tr>
-          <tr><td data-label="Command"><code>latch-fast prepare mlp shared-64-bf16</code></td><td data-label="Tested scope">CPU build from the installed wheel</td><td data-label="Status"><span class="tag v0">In this package</span>; compare/verify timings are v0 rc2 evidence (dynamic and mixed cases)</td></tr>
-          <tr><td data-label="Command"><code>examples/tinymoe/quickstart.sh</code> prepare … benchmark</td><td data-label="Tested scope">Installed wheel: build with <code>--rules auto</code>, 32 updates, conventional, evaluate, exact 15→32 restart, repeat, screen, five paired rounds; arena audit 0 violations</td><td data-label="Status"><span class="tag v0">In this package</span></td></tr>
-          <tr><td data-label="Command"><code>examples/selective_update/quickstart.sh</code></td><td data-label="Tested scope">Installed wheel: both programs, 64 microbatches, restart at 24 bitwise, conventional counterpart</td><td data-label="Status"><span class="tag v0">In this package</span></td></tr>
-          <tr><td data-label="Command"><code>examples/smelt_looped/quickstart.sh</code></td><td data-label="Tested scope">8 × 512 looped build, 32 updates, conventional graph control, exact restart</td><td data-label="Status"><span class="tag v0">In this package</span></td></tr>
-          <tr><td data-label="Command"><code>examples/gradlev/quickstart.sh</code></td><td data-label="Tested scope">Installed wheel: public GPT-2 and FineWeb-Edu windows, build, run, conventional, benchmark, carried/restart/reset checks</td><td data-label="Status"><span class="tag v0">In this package</span></td></tr>
-          <tr><td data-label="Command">Small-batch learning tools</td><td data-label="Tested scope">Packaged and checked as software in v0 rc2 (128-update machinery run, exact restart); full learning studies not rerun</td><td data-label="Status"><span class="tag ok">Verified in v0</span>; <a href="draft-notes.html#commands">command-guide status</a></td></tr>
-          <tr><td data-label="Command">Private four-H100 expert runner</td><td data-label="Tested scope">Historical 0.7.1rc1 evidence only</td><td data-label="Status">Excluded; <a href="draft-notes.html#scope">package scope</a></td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="prose">
-      <h2>Contributing</h2>
-      <p>Latch is a research preview. The most useful contributions address measured limitations — long-sequence attention, gather gradients, phase fusion, faster lowering, automatic build configuration — or bring new models and learning algorithms. See <a href="capabilities.html#contribute">where contributions would help</a>.</p>
-    </div>
+    <article class="prose">
+      <h1>Code coming soon</h1>
+      <p class="lede">Latch is a research preview. We will publish the compiler, supported workloads and runnable examples with the open-source release.</p>
+      <p id="run-it"><a href="walkthrough.html">See how Latch works</a> or <a href="methodology.html">read the results</a>.</p>
+      <span id="what-to-change"></span><span id="command-status"></span>
+    </article>
   </div>
 </main>
 
 <footer class="site-footer">
   <div class="wrap">
     <span>Latch v0 research preview</span>
-    <a href="sources.html">Sources for every number</a>
-    <a href="https://github.com/DeepakSingh98/latch-preview">Draft site source</a>
+    <a href="sources.html">Sources</a>
     <a data-repo-link hidden aria-disabled="true" href="get-started.html">Repository</a>
   </div>
 </footer>

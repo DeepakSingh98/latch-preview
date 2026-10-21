@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="robots" content="noindex, nofollow, noarchive">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Latch Methodology</title>
+<title>Latch — Experiments and results</title>
 <meta name="description" content="How the Latch results were measured: clocks, controls, numerical checks, batch sizes, the detailed case studies and the training-to-quality experiments.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="assets/site.css?v=draft1">
+<link rel="stylesheet" href="assets/site.css?v=12">
 <script src="assets/config.js" defer></script>
+<script src="assets/reading.js" defer></script>
 </head>
 <body>
 <div class="draft-banner"><div class="wrap">Research preview — code coming soon</div></div>
@@ -19,9 +19,8 @@
     <nav aria-label="Main">
       <ul>
         <li><a href="walkthrough.html">How it works</a></li>
-        <li><a href="get-started.html">Try Latch</a></li>
-        <li><a href="capabilities.html">Workloads</a></li>
-        <li><a href="methodology.html" aria-current="page">Methodology</a></li>
+        <li><a href="capabilities.html">Open problems</a></li>
+        <li><a href="methodology.html" aria-current="page">Results</a></li>
       </ul>
     </nav>
   </div>
@@ -30,29 +29,29 @@
 <main id="main">
   <div class="wrap">
     <div class="article">
-      <p class="meta"><span>Methodology</span></p>
-      <h1>How we measure, and what the results show</h1>
-      <p class="lede">Every result on this site compares the same work done two ways. This page explains how those comparisons were made, what each one does and does not establish, and where the evidence is.</p>
+
+      <h1>Experiments and results</h1>
+      <p class="lede">We measure execution speed and learning separately. This page reports the controls, training curves and numerical checks for each experiment.</p>
     </div>
 
     <nav class="toc" aria-label="On this page">
       <ol>
         <li><a href="#measure">How we measure</a></li>
         <li><a href="#batch-sizes">Batch sizes and questions</a></li>
-        <li><a href="#results">Results in detail</a></li>
-        <li><a href="#learning">Training to a target quality</a></li>
-        <li><a href="#headline-scope">Earlier small-batch studies</a></li>
-        <li><a href="sources.html">Sources for every number</a>
-    <a href="https://github.com/DeepakSingh98/latch-preview">Draft site source</a></li>
+        <li><a href="#learning">Pretraining from scratch</a></li>
+        <li><a href="#small-batch">Small-batch training</a></li>
+        <li><a href="#recipes">Comparing learning recipes</a></li>
+        <li><a href="#results">Execution benchmarks</a></li>
+        <li><a href="sources.html">Sources</a></li>
       </ol>
     </nav>
 
     <section id="measure" class="prose" aria-labelledby="measure-h">
       <h2 id="measure-h">How we measure</h2>
-      <p>Each speed result times one unit of work on a single, otherwise idle H100, once by the program Latch generated and once by a conventional PyTorch implementation. The two alternate over several rounds, so that changes in the machine affect both equally, and we report medians.</p>
-      <p>The unit is either a complete training update (forward pass, loss, backward pass, gradient clipping and optimizer step) or, for test-time adaptation, a complete block. The clock starts when the inputs are ready and stops when the GPU has finished. It excludes compilation, data loading, evaluation and checkpointing. It therefore measures execution, not the time needed to reach a given quality; that is measured separately, below.</p>
-      <p>The comparison is the fastest conventional implementation we built for the workload that passed the same numerical checks, and we name it. Where we built a CUDA-graph version, it is included. For the standard TinyMoE update we have not built one, and the captions say so; the looped TinyMoE comparison does use one.</p>
-      <p>Speed matters only if the numbers are right. Each Latch program reported here is checked against an independent reference — FP64 for the training updates — at fresh and trained states, and restarting it from a checkpoint reproduces the uninterrupted run bit for bit. Each build is a new binary and is checked again.</p>
+      <p>Execution benchmarks alternate Latch and PyTorch on the same otherwise idle H100. Repeated rounds reduce the effect of changes in machine performance. Each result states its timing statistic.</p>
+      <p>We time complete training updates and adaptation blocks. A training update includes the forward pass, loss, backward pass, clipping and optimizer. For time to quality we add these update times until the model reaches a fixed validation target. Compilation, evaluation, checkpointing and data loading are outside this clock.</p>
+      <p>We compare against the fastest tested PyTorch implementation that passes the applicable checks. The standard TinyMoE control uses compiled layers and grouped expert products. Looped TinyMoE and GradLev also have CUDA-graph controls. Each case below specifies its implementation.</p>
+      <p>Numerical checks compare outputs, gradients and updates with an independent reference. Restart checks compare resumed and uninterrupted execution bit for bit. The details below each result identify the shapes and states tested.</p>
       <p>Results are labelled by where they come from:</p>
       <dl class="legend">
         <dt><span class="tag v0">In this package</span></dt><dd>Measured with the final package, <code>megakernel-lab 0.9.0rc1</code>.</dd>
@@ -64,29 +63,160 @@
 
     <section id="batch-sizes" class="prose" aria-labelledby="batch-h">
       <h2 id="batch-h">Different batch sizes answer different questions</h2>
-      <p>A speed comparison holds the work fixed. Both implementations process the same batch with the same arithmetic, so the comparison answers one question: how much faster is this update? The answer depends on the batch. With a small batch each operation is small, overhead dominates and a megakernel gains most. With a large batch conventional kernels stay busy and there is less to gain. For TinyMoE, Latch was 5.1× faster at 2 × 512 tokens and 1.74× faster at 32 × 1024; an older measurement at the published batch of 128 × 1024 found 1.11×.</p>
-      <p>A training experiment asks a different question: which recipe reaches a target quality soonest? Here each implementation may use the batch size that suits it, because faster updates can make a smaller batch worthwhile. Comparing different batches is then the purpose of the experiment, not a flaw in it. The experiment should also run the conventional implementation at the other side's batch size, so that the effect of the batch can be separated from the effect of the compiler. We report both.</p>
+      <p>Holding the batch and recipe fixed isolates execution speed. TinyMoE updates are 5.1× faster at 2 × 512 tokens and 1.74× faster at 32 × 1,024. Fusion saves a larger share of the time when each operation is small.</p>
+      <p>Changing the batch changes both learning and execution. We tune each recipe and compare the tokens and time needed to reach the same target. The <a href="#recipes">recipe comparison</a> reports this separately from the execution benchmarks.</p>
+    </section>
+
+    <section id="learning" class="prose" aria-labelledby="learning-h">
+      <h2 id="learning-h">Pretraining from scratch</h2>
+
+      <p>We pretrained TinyMoE-200M from scratch on FineWeb-Edu. Both implementations started from random weights. Latch and PyTorch used the same tuned recipe at 32 × 1,024 tokens per update. Each pair shared its initial weights and data order. All runs completed a 655M-token schedule. We measured the training-update time needed to reach validation loss 3.30. The protocol and target were fixed before training began.</p>
+<figure class="time-chart" style="--chart-steps:3" aria-labelledby="large-time-title large-time-caption">
+<h3 id="large-time-title">41–44% less training-update time to the same quality</h3>
+<div class="time-row is-latch" data-values="16.749833333333335,17.014666666666667,15.974333333333334" data-scale="30">
+<div class="time-label"><span>Latch</span><span>16.0–17.0 min</span></div>
+<div class="time-track" aria-hidden="true"><span class="time-fill" style="width:55.2654%"></span>
+<span class="time-range" style="left:53.2478%;width:3.4678%"></span>
+</div></div>
+<div class="time-row" data-values="28.278666666666666,29.81383333333333,28.604333333333333" data-scale="30">
+<div class="time-label"><span>Compiled PyTorch</span><span>28.3–29.8 min</span></div>
+<div class="time-track" aria-hidden="true"><span class="time-fill" style="width:96.3298%"></span>
+<span class="time-range" style="left:94.2622%;width:5.1172%"></span>
+</div></div>
+<div class="time-axis" aria-hidden="true"><span>0</span><span>10</span><span>20</span><span>30</span></div>
+<figcaption id="large-time-caption">Pretraining from random weights to validation loss 3.30. Batch 32 × 1,024 tokens. Three paired seeds on H100. Bars show mean training-update time; marks show the range across seeds.</figcaption>
+</figure>
+<details class="reading-details"><summary>Exact results by seed</summary>
+      <div class="table-wrap">
+        <table>
+          <caption>Accumulated training-update time to validation loss 3.30, in seconds, by seed. Batch 32 × 1,024, <code>megakernel-lab 0.9.0rc1</code>, one H100 per run</caption>
+          <thead><tr><th scope="col">Implementation</th><th scope="col" class="r">Seed 1740</th><th scope="col" class="r">2041</th><th scope="col" class="r">2042</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Latch, released program</th><td class="r">1,005</td><td class="r">1,021</td><td class="r">958</td></tr>
+            <tr><th scope="row">PyTorch C32, compiled-grouped</th><td class="r">1,697</td><td class="r">1,789</td><td class="r">1,716</td></tr>
+            <tr><th scope="row">Latch ÷ PyTorch</th><td class="r">0.592</td><td class="r">0.571</td><td class="r">0.558</td></tr>
+          </tbody>
+        </table>
+      </div>
+<p>Both implementations crossed 3.30 at the same evaluation on seeds 2041 and 2042. Latch crossed one evaluation later on seed 1740: 411.0M tokens against 394.3M. Final test losses were close. They were 3.1684 / 3.1785 / 3.1591 for Latch and 3.1615 / 3.1805 / 3.1607 for PyTorch.</p>
+</details>
+      <p>Updates took about 80 ms with Latch and 140 ms with PyTorch. The faster execution carried through pretraining to the same validation target.</p>
+
+      <details class="spec">
+        <summary>Recipe, clock, control and numerical checks</summary>
+        <dl>
+          <dt>Model and data</dt><dd><code>FlameF0X/TinyMoE-200m-2x16</code> @ <code>9b209f74</code> architecture, random initialization (identical tensors per seed for both arms); FineWeb-Edu 1,024-token windows in a pinned split, one shared order per seed, no repetition</dd>
+          <dt>Recipe</dt><dd>Frozen from the earlier batch-32 study: 20,000 updates of 32 × 1,024 tokens (655,360,000 tokens); peak learning rate 1.06e-3, linear warmup over 26.2M tokens, cosine decay to zero; AdamW β1 0.9, β2 0.999<sup>1/4</sup>, ε 1e-6, weight decay 0.007075, clipping 1.0; router balance loss per 8-sequence group; experts that receive no tokens are left untouched</dd>
+          <dt>Precision</dt><dd>FP32 master weights and Adam moments; BF16 projections, attention and expert products; FP32 cross-entropy</dd>
+          <dt>Target</dt><dd>Validation loss on the first 256 validation windows, evaluated every 8,388,608 tokens; the crossing is the first evaluation at or below 3.30. Also reported: 4.30 to 3.20; seed 2041 did not reach 3.20 in either arm. Final validation on 2,048 windows and test on 4,096 windows at the end of each run</dd>
+          <dt>Clock</dt><dd>Accumulated synchronized complete-update seconds of the actual runs, including the token host-to-device copy, forward, loss, backward, clipping and optimizer. Excludes compilation, warmup, evaluation, checkpointing and resume overhead; not total elapsed time. The previous evaluation, about 30 s (Latch) or 50 s (PyTorch) earlier, bounds the resolution</dd>
+          <dt>Hardware</dt><dd>One H100 80GB per run (GCP <code>a3-highgpu-1g</code>), not shared during measurement. Same-device check: alternating fresh processes on one H100 at fresh, 10,000- and 20,000-update states gave ratios 0.572 / 0.574 / 0.573, matching the full runs</dd>
+          <dt>Control</dt><dd>C32 compiled-grouped: per-layer <code>torch.compile</code>, grouped expert products, fused AdamW, microbatch 32, vocabulary chunk 8,192, deterministic; no CUDA graph. The fastest implementation that passed the release screen's checks at this batch (139.20 ms per update there; full-run medians 139.7–142.5 ms). Not a claim about the best possible PyTorch implementation</dd>
+          <dt>Release</dt><dd><code>megakernel-lab 0.9.0rc1</code> wheel (SHA-256 <code>b806d8a5…</code>), installed and checked file by file against its RECORD on every worker; the Latch program was generated by the installed compiler (<code>rules="auto"</code>) with no compiler change. Full-run medians 79.8–80.2 ms per update</dd>
+          <dt>Numerical checks</dt><dd>Passed, at batch 32 only. FP64-reference gradient audits at a fresh update (Latch maximum relative-L2 0.013–0.014; gate 0.08) and at a trained state after 327.7M tokens (Latch 0.039, PyTorch 0.047); exact restart bitwise for both arms; a resume on a different machine bitwise equal to the uninterrupted run</dd>
+          <dt>Evidence</dt><dd><a href="evidence/release-learning.json">release-learning.json</a>; report <code>research/latch_release_learning_confirm/RESULTS.md</code> on <code>codex/latch-release-learning-confirm</code> @ <code>c85aae1ed</code>; <a href="sources.html#src-ttq">sources</a></dd>
+        </dl>
+      </details>
+
+
+    </section>
+
+    <section id="small-batch" class="prose" aria-labelledby="small-batch-h">
+      <h2 id="small-batch-h">Small-batch training</h2>
+
+      <p>The small-batch benchmark measured 12.57 ms per Latch update versus 64.52 ms for PyTorch. We then tested whether that advantage persisted through full training at the same batch.</p>
+      <p>Three paired seeds (2051–2053) trained from random initialization with the release’s default recipe. Both implementations ran 640,000 updates at the same batch size, for a total of 655M tokens. Neither reached the planned loss target of 3.30. Both ended near 4.0. The protocol specified a fallback: use the lowest target reached by both implementations on every seed. That target was 4.10.</p>
+<figure class="time-chart" aria-labelledby="small-time-title small-time-caption">
+<h3 id="small-time-title">5.3–6.2× faster to loss 4.10</h3>
+<div class="time-row is-latch" data-values="1.7831611111111112,1.8452083333333333,1.8033305555555554" data-scale="12">
+<div class="time-label"><span>Latch</span><span>1.78–1.85 hours</span></div>
+<div class="time-track" aria-hidden="true"><span class="time-fill" style="width:15.0881%"></span><span class="time-range" style="left:14.8597%;width:0.5171%"></span></div>
+</div>
+<div class="time-row" data-values="9.557188888888888,10.849586111111112,11.163394444444444" data-scale="12">
+<div class="time-label"><span>Compiled PyTorch</span><span>9.56–11.16 hours</span></div>
+<div class="time-track" aria-hidden="true"><span class="time-fill" style="width:87.6949%"></span><span class="time-range" style="left:79.6432%;width:13.3850%"></span></div>
+</div>
+<div class="time-axis" aria-hidden="true"><span>0</span><span>4</span><span>8</span><span>12</span></div>
+<figcaption id="small-time-caption">Batch 2 × 512 tokens. Three paired seeds on H100. Neither implementation reached loss 3.30. Bars show mean training-update time; marks show the range across seeds.</figcaption>
+</figure>
+<details class="reading-details"><summary>Exact results by seed</summary>
+      <div class="table-wrap">
+        <table>
+          <caption>Accumulated training-update time to validation loss 4.10, in seconds, by seed. Batch 2 × 512, release default recipe, <code>megakernel-lab 0.9.0rc1</code>, one H100 per run</caption>
+          <thead><tr><th scope="col">Implementation</th><th scope="col" class="r">Seed 2051</th><th scope="col" class="r">2052</th><th scope="col" class="r">2053</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Latch, released program</th><td class="r">6,419</td><td class="r">6,643</td><td class="r">6,492</td></tr>
+            <tr><th scope="row">PyTorch, compiled-grouped</th><td class="r">34,406</td><td class="r">39,059</td><td class="r">40,188</td></tr>
+            <tr><th scope="row">Latch ÷ PyTorch</th><td class="r">0.187</td><td class="r">0.170</td><td class="r">0.162</td></tr>
+          </tbody>
+        </table>
+      </div>
+</details>
+      <p>Latch reached loss 4.10 5.3–6.2× faster. The largest loss gap at equal tokens was 0.016 nats. Median update times across the full runs were 12.4–12.6 ms for Latch and 70.0–75.0 ms for PyTorch. PyTorch ran more slowly on these hosts than in the short benchmark.</p>
+      <p>Both implementations failed some numerical checks after training. The small-batch result has therefore not passed the full numerical policy.</p>
+      <details class="reading-details">
+        <summary>Numerical checks</summary>
+        <p>Early gradients passed the FP64-reference check. We tested updates 1 and 32 from the public weights and the first update from random weights. The largest gradient relative-L2 errors at random initialization were 0.0206 for Latch and 0.0225 for PyTorch. The limit was 0.08. Both implementations resumed bit for bit, including on a different machine.</p>
+        <p>After 320,000 updates of Latch’s seed-2051 run, four of 663 gradient tensors exceeded the same limit. Their errors were 0.083–0.089. Repeating the check on another machine gave identical results.</p>
+        <p>We then checked five predetermined cases at trained states. PyTorch received the same weights, optimizer state and batch as Latch. Latch failed two cases and PyTorch failed one. An FP64 reference using BF16-rounded operands also exceeded the limit in one case. Across 3,021 gradient tensors the mean log<sub>2</sub> ratio of Latch’s error to PyTorch’s was +0.002. We found no implementation or harness defect. These results point to sensitivity to BF16 rounding.</p>
+        <p>PyTorch’s own state after 320,000 updates of seed 2051 passed, with a maximum error of 0.061. All tolerances stayed fixed. A change in precision or acceptance policy would need a new verification study.</p>
+      </details>
+      <p class="small mute">Evidence: <a href="evidence/release-learning.json">release-learning.json</a> (<code>small_batch</code>); reports <code>research/latch_release_learning_confirm/RESULTS.md</code> and <code>DIAG_A.md</code> on <code>codex/latch-release-learning-confirm</code> @ <code>c85aae1ed</code>; <a href="sources.html#src-small-batch">sources</a>.</p>
+    </section>
+
+    <section id="recipes" class="prose" aria-labelledby="recipes-h">
+      <h2 id="recipes-h">Comparing learning recipes</h2>
+      <p>We also compared different recipes. The earlier tuned small-batch recipe used 2 × 1,024 tokens per update and a 393M-token horizon. We ran it with the released compiler. Its control was the tuned batch-32 PyTorch recipe above. The comparison used the same three seeds and initial weights.</p>
+<figure class="time-chart" aria-labelledby="recipe-time-title recipe-time-caption">
+<h3 id="recipe-time-title">Batch 32 reaches the target sooner</h3>
+<div class="time-row is-latch" data-values="16.749833333333335,17.014666666666667,15.974333333333334" data-scale="45">
+<div class="time-label"><span>Latch · batch 32</span><span>16.0–17.0 min</span></div>
+<div class="time-track" aria-hidden="true"><span class="time-fill" style="width:36.8436%"></span><span class="time-range" style="left:35.4985%;width:2.3119%"></span></div>
+</div>
+<div class="time-row" data-values="28.278666666666666,29.81383333333333,28.604333333333333" data-scale="45">
+<div class="time-label"><span>Compiled PyTorch · batch 32</span><span>28.3–29.8 min</span></div>
+<div class="time-track" aria-hidden="true"><span class="time-fill" style="width:64.2199%"></span><span class="time-range" style="left:62.8415%;width:3.4115%"></span></div>
+</div>
+<div class="time-row is-latch" data-values="39.352999999999994,39.021166666666666" data-scale="45">
+<div class="time-label"><span>Latch · batch 2</span><span>39.0–39.4 min</span></div>
+<div class="time-track" aria-hidden="true"><span class="time-fill" style="width:87.0824%"></span><span class="time-range" style="left:86.7137%;width:0.7374%"></span></div>
+<p class="time-note">Two of three seeds reached the target. The third ended at 3.3027.</p>
+</div>
+<div class="time-axis" aria-hidden="true"><span>0</span><span>15</span><span>30</span><span>45</span></div>
+<figcaption id="recipe-time-caption">Validation loss 3.30. All recipes use 1,024-token sequences. Batch 2 has its own tuned schedule. Bars show mean training-update time; marks show the range across seeds.</figcaption>
+</figure>
+      <p>On the two seeds that reached the target, the tuned small-batch recipe used 15% fewer tokens: 335.5M against PyTorch’s 394.3M. It still took longer. Latch at 2 × 1,024 takes about 7.0 s per million tokens. PyTorch at 32 × 1,024 takes 4.3 s. Their update times are 14.3–14.4 ms and 139.7–142.5 ms respectively.</p><p>Batch-32 PyTorch reaches the target first on every seed. Batch-32 Latch is faster still. Small-batch Latch would need an update time of about 10.4 ms to match PyTorch at loss 3.30. At its current speed it would need about 28% fewer tokens. These are calculated thresholds.</p>
+      <p class="small mute">Evidence: <a href="evidence/release-learning.json">release-learning.json</a> (<code>tuned_small_batch</code>); report <code>research/latch_tuned_ttq/RESULTS.md</code> on <code>codex/latch-tuned-ttq</code> @ <code>5c427c2eb</code>; <a href="sources.html#src-tuned">sources</a>. </p>
     </section>
 
     <section id="results" aria-labelledby="res-h">
       <div class="prose">
-        <h2 id="res-h">Results in detail</h2>
-        <p>Four workloads. Bars are proportional to measured time; shorter is faster. Each case states whether it is a training update or an adaptation loop, and whether it comes from the package or a research branch. The <a href="capabilities.html">catalogue</a> lists every other tested configuration, including the slower ones.</p>
+        <h2 id="res-h">Execution benchmarks</h2>
+        <p>Each benchmark below identifies the model, control and reproduction commands.</p>
       </div>
       <article class="case" id="case-tinymoe" aria-labelledby="case-tinymoe-h">
-        <p class="eyebrow"><span class="tag v0">In this package</span>&ensp;Complete training update · many small routed experts</p>
-        <h3 id="case-tinymoe-h">TinyMoE-200M: complete training updates</h3>
-        <p class="verdict">5.1× faster than the fastest compiled PyTorch at 2 × 512 tokens per update, and 1.74× at 32 × 1024; the advantage shrinks as batches grow.</p>
+
+        <h3 id="case-tinymoe-h">TinyMoE-200M: update-speed benchmarks</h3>
+        <p class="verdict">5.1× faster updates at 2 × 512 tokens. At 32 × 1024 the speedup is 1.74×.</p>
         <div class="prose">
-          <p>The public TinyMoE-200M model, with all 199,837,056 weights, continues training on WikiText-103. Latch generates one kernel for the whole update — forward, loss, backward, clipping and AdamW. On this package, the generated update passes the independent FP64-reference audits at updates 1 and 32, trains bit for bit like the v0 option set, and restarts exactly from a checkpoint.</p>
+          <p>The <a href="#learning">pretraining experiment</a> above starts from random weights on FineWeb-Edu. The 5.1× result below comes from a separate short timing test. It starts from TinyMoE’s public weights and uses WikiText-103.</p>
+          <p>TinyMoE-200M has 199,837,056 weights. Latch runs the forward pass, loss, backward pass, clipping and AdamW in one kernel. Early-update audits and restart pass. <a href="#small-batch">Long-run checks at this batch</a> expose a numerical limit.</p>
         </div>
-        <div class="bars" role="img" aria-label="Complete-update time at 2 by 512 tokens: compiled PyTorch 64.52 milliseconds; Latch 12.57 milliseconds.">
-          <div class="bar"><span class="lab">Compiled PyTorch</span><span class="track"><span class="fill" style="width:100%"></span></span><span class="val">64.52 ms</span></div>
-          <div class="bar latch"><span class="lab">Latch</span><span class="track"><span class="fill" style="width:19.48%"></span></span><span class="val">12.57 ms</span></div>
-          <p class="scale">2 × 512 tokens per update. Pooled medians, 80 measured updates per arm, same H100. The v0 rc2 package measured 31.3 vs 73.4 ms</p>
-        </div>
+        <figure class="time-chart" style="--chart-steps:4" aria-labelledby="update-time-title update-time-caption">
+<h3 id="update-time-title">5.1× faster training updates at small batch</h3>
+<div class="time-row is-latch" data-values="12.57" data-scale="80">
+<div class="time-label"><span>Latch</span><span>12.57 ms</span></div>
+<div class="time-track" aria-hidden="true"><span class="time-fill" style="width:15.7125%"></span>
+</div></div>
+<div class="time-row" data-values="64.52" data-scale="80">
+<div class="time-label"><span>Compiled PyTorch</span><span>64.52 ms</span></div>
+<div class="time-track" aria-hidden="true"><span class="time-fill" style="width:80.6500%"></span>
+</div></div>
+<div class="time-axis" aria-hidden="true"><span>0</span><span>20</span><span>40</span><span>60</span><span>80</span></div>
+<figcaption id="update-time-caption">Complete training updates at batch 2 × 512 tokens on one H100. The control uses compiled layers and grouped expert products.</figcaption>
+</figure>
         <div class="prose">
-          <p>This control compiles each layer with <code>torch.compile</code> and uses grouped expert products, but does not replay the update as a CUDA graph; no CUDA-graph control has been built for this ragged-routing update. The advantage depends on batch size. With this package, the best measured learning recipe at 32 × 1024 tokens per update takes 79.9 ms against 139.2 ms for the compiled control (1.74×). At TinyMoE's published batch, 16 accumulated microbatches of 8 × 1024 tokens, an older historical measurement was 977.2 ms against 1,088.4 ms: large microbatches amortize most conventional overhead.</p>
+          <p>The control compiles each layer with <code>torch.compile</code> and uses grouped expert products. It does not replay the update as a CUDA graph. We have not built a CUDA-graph control for this ragged-routing update.</p><p>The batch-32 recipe takes 79.9 ms per update with Latch and 139.2 ms with PyTorch. That is a 1.74× speedup. Complete training runs reached loss 3.30 with 41–44% less update time. See the <a href="#learning">training results</a>.</p><p>At the published batch of 16 microbatches of 8 × 1024 tokens, an older measurement gave 977.2 ms for Latch and 1,088.4 ms for PyTorch. Large microbatches spread the conventional overhead across more work.</p>
         </div>
         <details class="spec">
           <summary>Configuration, clock, control and reproduction</summary>
@@ -94,31 +224,39 @@
             <dt>Model</dt><dd><code>FlameF0X/TinyMoE-200m-2x16</code> @ <code>9b209f74</code>: 199,837,056 parameters, 12 layers, width 384, grouped-query attention (8 query / 4 key-value heads of width 48), 16 experts with top-2 token-choice routing, vocabulary 32,000</dd>
             <dt>Hardware</dt><dd>One NVIDIA H100 80GB HBM3 (SM90, 132 SMs), driver 580.173.02, PyTorch 2.9.1+cu128</dd>
             <dt>Batch × context</dt><dd>2 × 512 tokens per update; unchanged 400-update recipe, continued training from the public weights</dd>
-            <dt>Numerical policy</dt><dd>FP32 master weights and Adam moments; BF16 projections, attention and expert products. Gradient relative-L2 gate 0.08 against FP64; both audits pass on this package</dd>
+            <dt>Numerical policy</dt><dd>FP32 master weights and Adam moments; BF16 projections, attention and expert products. Gradient relative-L2 gate 0.08 against FP64. The audits at updates 1 and 32 pass on this package; the trained-state audit at this batch fails (<a href="#small-batch">status</a>)</dd>
             <dt>Clock</dt><dd>From common token-batch readiness through synchronized optimizer completion, including backend staging. Excludes compilation, state restore, warmup, batch loading, evaluation and checkpointing. 5 alternating pairs × 16 measured updates, 4 warmups. Not time-to-quality</dd>
             <dt>Kernels per update</dt><dd>Latch: 1 generated cooperative kernel (132 blocks) plus a few staging fills and copies. Compiled control at 32 × 1024: 4,267 kernels, 104 copies, 531 memsets. At the published batch: compiled 69,394; Latch 16 generated + 17 fills</dd>
             <dt>Control</dt><dd><code>compiled-grouped</code>: per-layer <code>torch.compile(fullgraph=True)</code> over attention and expert blocks, grouped expert products, fused AdamW, deterministic algorithms, TF32 off; no CUDA graph. Fastest of four screened arms on that host (installed 378.9, optimized 378.6, grouped 68.0, compiled-grouped 64.6 ms); a second host measured 12.56 vs 72.01 ms</dd>
-            <dt>Reproduce</dt><dd>Installed package: <a href="draft-notes.html#commands">command-guide status</a> and <a href="get-started.html#run-it">commands</a> (<code>quickstart.sh benchmark</code>); the 32 × 1024 recipe uses the package compiler with its study harness</dd>
-            <dt>Evidence</dt><dd><a href="evidence/final-package.json">final-package.json</a>, <a href="draft-notes.html#validation">validation summary</a>; v0 rc2: <a href="draft-notes.html#validation">validation summary</a>; published batch: <a href="evidence/tinymoe-execution.json">tinymoe-execution.json</a></dd>
+            <dt>Reproduce</dt><dd>Reproduction instructions will accompany the open-source code.</dd>
+            <dt>Evidence</dt><dd><a href="evidence/final-package.json">final-package.json</a>, VALIDATION.md; v0 rc2: tinymoe-gpu.json; published batch: <a href="evidence/tinymoe-execution.json">tinymoe-execution.json</a></dd>
           </dl>
         </details>
       </article>
 
       <article class="case" id="case-smelt" aria-labelledby="case-smelt-h">
-        <p class="eyebrow"><span class="tag v0">In this package</span>&ensp;Complete training update · looped layers</p>
+
         <h3 id="case-smelt-h">SMELT-style looped TinyMoE</h3>
-        <p class="verdict">1.34× faster than compiled PyTorch replayed as a CUDA graph. The gain is ordinary execution efficiency, not reuse from the loop.</p>
+        <p class="verdict">1.34× faster complete training updates than compiled PyTorch with CUDA graphs.</p>
         <div class="prose">
-          <p>The middle six of TinyMoE's twelve layers run twice with shared weights, a looped design adapted from the SMELT papers (no official code was found). Both implementations run the same model, objective and AdamW recipe at 32 × 1024 tokens per update.</p>
+          <p>The middle six of TinyMoE’s twelve layers run twice with shared weights. We adapted this design from the SMELT papers. We found no official code. Both implementations use the same model, objective and AdamW recipe at 32 × 1024 tokens per update.</p>
         </div>
-        <div class="bars" role="img" aria-label="Complete-update time with this package: compiled trunk plus CUDA graph 154.22 ms; Latch 114.82 ms.">
-          <div class="bar"><span class="lab">Compiled + CUDA graph</span><span class="track"><span class="fill" style="width:100%"></span></span><span class="val">154.22 ms</span></div>
-          <div class="bar latch"><span class="lab">Latch</span><span class="track"><span class="fill" style="width:74.45%"></span></span><span class="val">114.82 ms</span></div>
-          <p class="scale">Means over 5 alternating rounds × 3 model states, same idle H100, this package. The research branch also timed weaker controls: compiled trunk without a graph 169.60 ms, per-region compiled 197.32 ms</p>
-        </div>
+        <figure class="time-chart" style="--chart-steps:4" aria-labelledby="smelt-time-title smelt-time-caption">
+<h3 id="smelt-time-title">1.34× faster training updates</h3>
+<div class="time-row is-latch" data-values="114.82" data-scale="160">
+<div class="time-label"><span>Latch</span><span>114.82 ms</span></div>
+<div class="time-track" aria-hidden="true"><span class="time-fill" style="width:71.7625%"></span>
+</div></div>
+<div class="time-row" data-values="154.22" data-scale="160">
+<div class="time-label"><span>Compiled PyTorch + CUDA graphs</span><span>154.22 ms</span></div>
+<div class="time-track" aria-hidden="true"><span class="time-fill" style="width:96.3875%"></span>
+</div></div>
+<div class="time-axis" aria-hidden="true"><span>0</span><span>40</span><span>80</span><span>120</span><span>160</span></div>
+<figcaption id="smelt-time-caption">Means over five alternating rounds at three model states on the same H100.</figcaption>
+</figure>
         <div class="prose">
-          <p>Looping does not create a special opportunity. Each extra pass costs Latch about 34 ms and the conventional graph about 39 ms, and an 18-layer model with distinct weights takes Latch the same time as the looped one. Inside each pass, Latch's grouped expert products are still slower than the library GEMMs, and it uses about 1.8 GiB more memory. In complete 655M-token training runs, both implementations crossed dev loss 3.50, 3.30 and 3.20 at identical update counts; Latch got there 1.31× sooner in update time each time.</p>
-          <p class="small mute">The research build selected a compiler rule (<code>rowchain</code>) later found to permit an arena race. This package rebuilds it with the fix; the new program is bitwise equal to the research program from all three states and repeats and restarts bitwise, so those learning runs describe the packaged program.</p>
+          <p>Repeating the six middle layers adds about 34 ms to Latch and 39 ms to the conventional graph. The layers share weights but each visit still requires computation. Both implementations crossed losses 3.50, 3.30 and 3.20 at identical update counts in the research runs. Latch reached each target 1.31× sooner in update time.</p>
+          <p class="small mute">The research build used the <code>rowchain</code> rule. We later found that this rule could cause an arena race. The package includes the fix. Its rebuilt program matches the research program bit for bit from all three tested states. Repeated runs and restarts also match.</p>
         </div>
         <details class="spec">
           <summary>Configuration, clock, control and reproduction</summary>
@@ -130,26 +268,33 @@
             <dt>Clock</dt><dd>Synchronize, LR/staging, forward, loss, backward, clip, optimizer, synchronize. 8 warm + 32 timed updates per state; states fresh, unlooped-trained and looped-trained</dd>
             <dt>Kernels per update</dt><dd>Latch 1 cooperative kernel. Conventional trunk about 6,086 kernels, replayed as one graph plus eager embedding-gradient, clip and AdamW kernels</dd>
             <dt>Control</dt><dd>Hugging Face Mixtral modules, <code>torch._grouped_mm</code>, deterministic algorithms, fused AdamW; one fullgraph <code>torch.compile</code> over all visits with forward and backward captured in one CUDA graph (bitwise equal to the uncaptured variant over 64 updates)</dd>
-            <dt>Reproduce</dt><dd>Installed package: <code>SMELT_ROOT=/abs/dir bash examples/smelt_looped/quickstart.sh prepare|build|train|conventional|restart|compare-restart</code> (8 × 512 example; measured 25.6 versus 40.9 ms, restart bitwise). The 32 × 1024 benchmark uses the package compiler with the study harness (branch <code>codex/smelt-latch</code>)</dd>
+            <dt>Reproduce</dt><dd>Reproduction instructions will accompany the open-source code.</dd>
           </dl>
         </details>
       </article>
 
       <article class="case" id="case-gradlev" aria-labelledby="case-gradlev-h">
-        <p class="eyebrow"><span class="tag v0">In this package</span>&ensp;Adaptation loop, not training · sequential predict-and-learn</p>
+
         <h3 id="case-gradlev-h">GradLev causal adaptation on GPT-2</h3>
-        <p class="verdict">3.5× faster than the strongest CUDA-graph control for a complete block of 1,024 dependent predict-and-update steps, in one kernel instead of 18,176.</p>
+        <p class="verdict">3.5× faster complete adaptation blocks than the strongest tested CUDA-graph control. Latch runs 1,024 dependent learning steps in one kernel. The control uses 18,176 kernels.</p>
         <div class="prose">
-          <p>While reading a 1,024-token block, the model predicts each token, scores it, and immediately updates the weights of its final MLP before the next token. Every step depends on the previous one. This adapts a published method, GradLev, to GPT-2 small (no official code was found). It measures deployment-time adaptation of one MLP, not full-model training speed.</p>
+          <p>GPT-2 small predicts each token in a 1,024-token block. It uses the prediction error to update its final MLP before predicting the next token. We adapted this procedure from the GradLev paper. We found no official code. The benchmark measures adaptation of one MLP during deployment.</p>
         </div>
-        <div class="bars" role="img" aria-label="Time per complete 1,024-step block, policy P1b: CUDA graph of the compiled step 189.53 ms; previous Latch schedule 75.18 ms; Latch in this package 53.98 ms.">
-          <div class="bar"><span class="lab">CUDA graph, compiled step</span><span class="track"><span class="fill" style="width:100%"></span></span><span class="val">189.53 ms</span></div>
-          <div class="bar"><span class="lab">Latch, previous schedule</span><span class="track"><span class="fill" style="width:39.67%"></span></span><span class="val">75.18 ms</span></div>
-          <div class="bar latch"><span class="lab">Latch, this package</span><span class="track"><span class="fill" style="width:28.48%"></span></span><span class="val">53.98 ms</span></div>
-          <p class="scale">Policy P1b. Medians, 16 blocks × 5 alternating rounds = 80 samples per arm, same idle H100. Each block includes the eager trunk prefill (7.5 ms), staging, reset and read-back; the generated loop itself takes 46.2 ms</p>
-        </div>
+        <figure class="time-chart" style="--chart-steps:4" aria-labelledby="gradlev-time-title gradlev-time-caption">
+<h3 id="gradlev-time-title">3.5× faster test-time adaptation</h3>
+<div class="time-row is-latch" data-values="53.98" data-scale="200">
+<div class="time-label"><span>Latch</span><span>53.98 ms</span></div>
+<div class="time-track" aria-hidden="true"><span class="time-fill" style="width:26.9900%"></span>
+</div></div>
+<div class="time-row" data-values="189.53" data-scale="200">
+<div class="time-label"><span>Compiled PyTorch + CUDA graphs</span><span>189.53 ms</span></div>
+<div class="time-track" aria-hidden="true"><span class="time-fill" style="width:94.7650%"></span>
+</div></div>
+<div class="time-axis" aria-hidden="true"><span>0</span><span>50</span><span>100</span><span>150</span><span>200</span></div>
+<figcaption id="gradlev-time-caption">One H100. A complete 1,024-token adaptation block includes the GPT-2 forward pass, staging, adaptation and read-back.</figcaption>
+</figure>
         <div class="prose">
-          <p>Here the changing state is small: the two adapted matrices are split across the SMs, each block owning 24 hidden units, and stay in shared memory for all 1,024 steps. The frozen 77 MB output head is too large to keep on chip and is read at every token. Under policy P1b the head's logits, online softmax and gradient share one pass; this package keeps about 23 of every 64 head row groups resident in the 50 MB L2 cache across steps, streams the rest with loads already in flight, and prefetches the next step's input rows, cutting the head pass from 41.7 to 24.4 µs per token. Every output is bitwise identical to the previous schedule. Under policy P1 (BF16-rounded gradient weights, two-pass head) the block takes 90.4 ms against 161.3 ms for its strongest control (1.79×). The learning result is modest: adaptation helps, but GradLev's extra meta-training adds nothing over the same update rule applied to an ordinary fine-tune at this scale.</p>
+          <p>The two adapted matrices are split across the SMs. Each block owns 24 hidden units and keeps its part in shared memory for all 1,024 steps. The frozen output head occupies 77 MB. It must be read at every token.</p><p>Policy P1b computes the head’s logits, online softmax and gradient in one pass. About 23 of every 64 head row groups stay in the 50 MB L2 cache across steps. The kernel streams the other groups and prefetches the next step’s input rows. The head pass takes 24.4 µs per token.</p><p>Policy P1 instead rounds gradient weights to BF16 and uses a two-pass head. Under this policy Latch takes 90.4 ms per block. Its strongest control takes 161.3 ms. That is a 1.79× speedup.</p><p>Adaptation reduced loss in the learning study. GradLev’s extra meta-training did not improve on the same update rule applied to an ordinary fine-tune at this scale.</p>
         </div>
         <details class="spec">
           <summary>Configuration, clock, control and reproduction</summary>
@@ -159,31 +304,43 @@
             <dt>Batch × context</dt><dd>Batch 1; one block = prefill, staging, reset, 1,024 dependent steps and NLL read-back</dd>
             <dt>Numerical policy</dt><dd>P1b (bars): frozen trunk under BF16 autocast; adapted MLP, fast state, log-softmax, FP32 softmax-gradient weights, NLL and writes in FP32 (TF32 off); head stored BF16 with FP32-result products. Maximum NLL difference from the eager loop 3.7e-4 (control 3.8e-4). P1 rounds the gradient weights to BF16 (Latch 1.4e-3; hybrid control 1.1e-2)</dd>
             <dt>Clock</dt><dd>Median time per complete block (prefill, staging, reset, 1,024 steps, NLL read-back); 16 development blocks × 5 alternating rounds; trained GradLev state 54.15 vs 190.47 ms</dd>
+            <dt>Compiler history</dt><dd>An earlier Latch execution plan took 75.18 ms per block. The current plan takes 53.98 ms. Its cache and prefetch changes cut the head pass from 41.7 to 24.4 µs per token with bitwise-identical outputs. This changes GPU execution order, not the learning-rate schedule.</dd>
             <dt>Kernels per block</dt><dd>Latch 1; CUDA-graph controls 18,176 (P1b) or 19,200 (P1)</dd>
             <dt>Control</dt><dd>P1b: CUDA graph of the step compiled with <code>torch.compile</code>, over all 1,024 steps, with an Inductor-reduction gradient (189.5 ms; cuBLAS SGEMV variant 191.9 ms). P1: hybrid-head graph 161.3 ms, plain graph 165.2 ms</dd>
             <dt>Correctness</dt><dd>Bitwise equal to the previous schedule on fresh and trained states and on all 1,024 held-out test blocks; Latch carry (512 + 512, 333 + 691), reset and new-process restart bitwise; conventional compiled restart in a new process not bitwise</dd>
             <dt>Limits</dt><dd>Batch-1 products only; at most 1,024 steps per call; tuned for the H100's 50 MB L2. Untuned nearby shapes: 0.69–1.00× the previous schedule's time, all bitwise; a GPT-2-medium-sized model keeps its state in global memory</dd>
-            <dt>Reproduce</dt><dd>Installed package: <code>GRADLEV_ROOT=/abs/dir bash examples/gradlev/quickstart.sh prepare|build|run|conventional|benchmark|restart</code>, with <code>GRADLEV_POLICY=P1b</code> for the fused head. API: <code>prepare_inference(…, lower_options={'loop_schedule': 'vector_resident'})</code></dd>
+            <dt>Reproduce</dt><dd>Reproduction instructions will accompany the open-source code.</dd>
           </dl>
         </details>
       </article>
 
       <article class="case" id="case-e2ttt" aria-labelledby="case-e2ttt-h">
-        <p class="eyebrow"><span class="tag research">Research branch</span>&ensp;Complete training update · a real limitation</p>
+
         <h3 id="case-e2ttt-h">E2-TTT-MLP outer training: correct, but about 3× slower</h3>
-        <p class="verdict">The complete 424.8M-parameter update compiles, passes its numerical checks and learns identically — and runs about 3× slower than <code>torch.compile</code> max-autotune.</p>
+        <p class="verdict">The complete 424.8M-parameter update compiles and passes its numerical checks. Its tested learning trajectory matches PyTorch. It runs about 3× slower than <code>torch.compile</code> max-autotune.</p>
         <div class="prose">
-          <p>E2-TTT-MLP is a released language model whose layers learn a memory as they read. Training it means differentiating through those inner updates. Latch generated the whole outer-training update through its normal API; its gradient error matches the published implementation, restarts are bitwise, and a 256-update continuation learned identically to the conventional executors.</p>
+          <p>This experiment used a research build of Latch. E2-TTT-MLP is a released language model whose layers learn a memory as they read. Training the model requires differentiation through those inner updates. Latch generated the complete outer-training update through its normal API. Its gradient error matches the published implementation. Restarts are bitwise. A 256-update continuation learned identically to the conventional implementations.</p>
         </div>
-        <div class="bars" role="img" aria-label="Seconds per 131,072-token update on one H100: Latch 9.12 s; published code with per-block compile 8.24 s; torch.compile max-autotune 3.05 s.">
-          <div class="bar latch"><span class="lab">Latch (2 × 2,048 microbatches)</span><span class="track"><span class="fill" style="width:100%"></span></span><span class="val">9.12 s</span></div>
-          <div class="bar"><span class="lab">Published code, per-block compile</span><span class="track"><span class="fill" style="width:90.29%"></span></span><span class="val">8.24 s</span></div>
-          <div class="bar"><span class="lab">torch.compile max-autotune (4 × 2,048)</span><span class="track"><span class="fill" style="width:33.43%"></span></span><span class="val">3.05 s</span></div>
-          <p class="scale">Seconds per 64 × 2,048-token update, means of 3 rounds × 3 updates, same H100. Each arm at its fastest runnable microbatch</p>
-        </div>
+        <figure class="time-chart" style="--chart-steps:3" aria-labelledby="e2ttt-time-title e2ttt-time-caption">
+<h3 id="e2ttt-time-title">Outer training update</h3>
+<div class="time-row is-latch" data-values="9.12" data-scale="12">
+<div class="time-label"><span>Latch · microbatch 2</span><span>9.12 s</span></div>
+<div class="time-track" aria-hidden="true"><span class="time-fill" style="width:76.0000%"></span>
+</div></div>
+<div class="time-row" data-values="8.24" data-scale="12">
+<div class="time-label"><span>Published code · per-block compile</span><span>8.24 s</span></div>
+<div class="time-track" aria-hidden="true"><span class="time-fill" style="width:68.6667%"></span>
+</div></div>
+<div class="time-row" data-values="3.05" data-scale="12">
+<div class="time-label"><span>PyTorch max-autotune · microbatch 4</span><span>3.05 s</span></div>
+<div class="time-track" aria-hidden="true"><span class="time-fill" style="width:25.4167%"></span>
+</div></div>
+<div class="time-axis" aria-hidden="true"><span>0</span><span>4</span><span>8</span><span>12</span></div>
+<figcaption id="e2ttt-time-caption">131,072 tokens per update on one H100. Both implementations use 2,048-token sequences.</figcaption>
+</figure>
         <div class="prose">
-          <p>Two conditions that favour a megakernel are missing here. Latch spreads each microbatch over about 5,000 barrier-separated intervals, and two thirds of its time is the memory update: many small elementwise and reduction steps that Inductor fuses into far fewer kernels than Latch's phases. And Latch keeps every saved activation in its arena, so the published microbatch of 4 sequences needs a 77.6 GB arena and does not fit on an 80 GB H100. In isolation, one layer's memory update is faster under Latch at one sequence (4.19 versus 5.48 ms) but slower at four (11.14 versus 7.10 ms). A further-tuned Latch build reached 8.79 s (2.8× slower than the control on its host); it used the compiler rule mentioned above and was not rebuilt, since it is slower either way. Compilation did improve: this package's exact lowering passes build the 4-layer, 8,192-token program in 282.6 s instead of 543.6 s on the same 64-vCPU host, with byte-identical output.</p>
-          <p>Two other measured cases point the same way: Granite 3.0-1B-A400M at 4,096 tokens, 1.65–1.73× slower (historical, not numerically qualified), and greedy local learning on a 125M-class model, 1.33× slower at K = 2 and 4 local blocks (research branch). Both lose mainly in large dense products, vocabulary heads, long-sequence attention or gradient scatter, where conventional libraries are faster than Latch's operation bodies. The <a href="capabilities.html#slower">capability catalogue</a> lists every slower case.</p>
+          <p>Latch divides each microbatch into about 5,000 intervals separated by barriers. Memory updates take two thirds of the time. These contain small elementwise operations and reductions that Inductor combines into far fewer kernels.</p><p>Latch also retains every saved activation in its arena. The published microbatch of four sequences needs a 77.6 GB arena. With the model and optimizer state it does not fit on an 80 GB H100. An isolated layer’s memory update takes 4.19 ms with Latch and 5.48 ms conventionally at one sequence. At four sequences it takes 11.14 ms and 7.10 ms respectively.</p><p>A further-tuned Latch build reached 8.79 s. This was still 2.8× slower than its control. It used the old <code>rowchain</code> rule and was not rebuilt. The current compiler does reduce build time: the 4-layer, 8,192-token program builds in 282.6 s instead of 543.6 s on the same 64-vCPU host. The output is byte-identical.</p>
+          <p>Granite 3.0-1B-A400M was 1.65–1.73× slower at 4,096 tokens. This historical result did not pass numerical qualification. Greedy local learning on a 125M-class model was 1.33× slower with K = 2 or 4 local blocks on a research branch. The main costs are large dense products, vocabulary heads, long-sequence attention and gradient scatter. Conventional libraries handle these faster than Latch’s operation implementations. These bottlenecks are among the <a href="capabilities.html">open problems</a>.</p>
         </div>
         <details class="spec">
           <summary>Configuration, clock, control and reproduction</summary>
@@ -196,69 +353,15 @@
             <dt>Clock</dt><dd>Complete update including token staging from pinned host memory; fresh process per arm and round, alternating, unmeasured warming round, 3 rounds × 3 timed updates</dd>
             <dt>Kernels per update</dt><dd>Not recorded. Latch profile at one sequence: 26,469 phases in 5,059 grid-barrier intervals per microbatch</dd>
             <dt>Control</dt><dd>The same capture-form function under <code>torch.compile</code> mode <code>max-autotune-no-cudagraphs</code> (no CUDA graphs); compile 884–1,041 s per process</dd>
-            <dt>Reproduce</dt><dd>Branch <code>codex/latch-e2ttt-outer</code> @ <code>172931a35</code>, not the v0 package; no packaged example. Harness: <span>Internal research report (not published in this draft)</span> and <code>paired</code> with <code>arms/*.json</code>; report <span>Internal research report (not published in this draft)</span></dd>
+            <dt>Reproduce</dt><dd>Reproduction instructions will accompany the open-source code.</dd>
           </dl>
         </details>
       </article>
     </section>
 
-    <section id="learning" class="prose" aria-labelledby="learning-h">
-      <h2 id="learning-h">Training to a target quality</h2>
-      <p>In this experiment TinyMoE-200M was trained from random initialization on FineWeb-Edu, and we recorded the accumulated update time each recipe needed to reach validation loss 3.30. Each recipe has its own batch size and its own tuned learning rate. The Latch runs used an earlier implementation of the compiler. The program in this package performs the same updates bit for bit at batch 32, but the experiment has not been rerun with it, and we do not report projected times.</p>
-      <div class="table-wrap">
-        <table>
-          <caption>Accumulated training-update time to validation loss 3.30, in seconds, by seed</caption>
-          <thead><tr><th scope="col">Recipe</th><th scope="col" class="r">Seed 1740</th><th scope="col" class="r">1741</th><th scope="col" class="r">1742</th></tr></thead>
-          <tbody>
-            <tr><th scope="row">Latch, 32 × 1024 per update</th><td class="r">1,468</td><td class="r">1,428</td><td class="r">1,459</td></tr>
-            <tr><th scope="row">PyTorch, 128 × 1024 (four microbatches of 32)</th><td class="r">1,781</td><td class="r">1,751</td><td class="r">1,915</td></tr>
-            <tr><th scope="row">PyTorch, 32 × 1024</th><td class="r">1,704</td><td class="r">—</td><td class="r">—</td></tr>
-            <tr><th scope="row">Latch ÷ PyTorch at 128 × 1024</th><td class="r">0.82</td><td class="r">0.82</td><td class="r">0.76</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <p>Against the fastest PyTorch implementation of the 128-sequence recipe, Latch needed 18–24% less update time on all three seeds. PyTorch can also run the 32-sequence recipe. It learned as well, but on the one seed we ran it reached 3.30 after 1,704 s, close to its own 128-sequence time; Latch took 14% less on that seed. So most of the gain comes from faster updates at batch 32, not from the batch alone. The Latch recipe was also the only one to reach validation loss 3.20, and it ended about 0.04 nats lower on the test set.</p>
-      <p class="small mute">Dashes mark runs we did not make; the report lists projections for them, which we do not use. Source: <span>Internal research report (not published in this draft)</span> on <code>codex/tinymoe-batch-frontier</code> @ <code>f9268c21b</code>; <a href="sources.html#src-learning">all values</a>.</p>
-    </section>
-
-    <section id="headline-scope" class="chapter" aria-labelledby="pilot-h">
-      <div class="prose">
-        <h2 id="pilot-h">Earlier studies at smaller batches</h2>
-        <p>Before the batch-32 experiment, we asked whether much smaller batches — two sequences per update — could reach a target sooner. A single-seed pilot suggested they could. The follow-up studies did not confirm it. We keep the full record here because the pilot was once our headline.</p>
-      </div>
-      <figure class="fig" aria-labelledby="fig-dp-cap">
-        <div class="dotplot" role="img" aria-label="Latch time divided by PyTorch time to reach a validation target, by study. Pilot: 0.69. Direct replication: 0.70 on the one fresh seed where PyTorch reached the target. Schedule changed only: 1.33 to 1.63. Full long run: 1.62 to 1.79. Independently tuned schedules: 1.47 and 1.59. Latch batch 32 against the strongest PyTorch batch 128: 0.76 to 0.82.">
-          <div class="dp-axis" aria-hidden="true"><span></span><span class="dp-track"><span class="dp-tick" style="left:6.67%">0.5×</span><span class="dp-tick dp-par" style="left:40%">1.0× parity</span><span class="dp-tick" style="left:73.33%">1.5×</span></span></div>
-          <div class="dp-row"><span class="dp-lab"><b>1 · Pilot</b> 131M-token schedule, dev 4.187, one seed</span><span class="dp-track"><span class="dp-dot win" style="left:19.33%"></span></span></div>
-          <div class="dp-row"><span class="dp-lab"><b>2 · Direct replication</b> same schedule, three fresh seeds<small>PyTorch did not reach 4.187 on two of them</small></span><span class="dp-track"><span class="dp-dot win" style="left:20%"></span></span></div>
-          <div class="dp-row"><span class="dp-lab"><b>3 · Only the schedule changed</b> 1.05B-token horizon, dev 4.187, four seeds</span><span class="dp-track"><span class="dp-dot lose" style="left:62%"></span><span class="dp-dot lose" style="left:76%"></span><span class="dp-dot lose" style="left:82%"></span><span class="dp-dot lose" style="left:74%"></span></span></div>
-          <div class="dp-row"><span class="dp-lab"><b>4 · Full long run</b> 1.05B tokens, dev 3.30, three seeds</span><span class="dp-track"><span class="dp-dot lose" style="left:92.53%"></span><span class="dp-dot lose" style="left:86.07%"></span><span class="dp-dot lose" style="left:81.2%"></span></span></div>
-          <div class="dp-row"><span class="dp-lab"><b>5 · Tuned schedules</b> equal 34-trial search, dev 3.30, three new seeds<small>Latch never reached 3.30 on one</small></span><span class="dp-track"><span class="dp-dot lose" style="left:79%"></span><span class="dp-dot lose" style="left:71.53%"></span></span></div>
-          <div class="dp-row dp-sep"><span class="dp-lab"><b>6 · Batch 32 on Latch</b> vs strongest PyTorch batch 128, dev 3.30, three seeds</span><span class="dp-track"><span class="dp-dot win" style="left:28.27%"></span><span class="dp-dot win" style="left:27.73%"></span><span class="dp-dot win" style="left:24.13%"></span></span></div>
-        </div>
-        <figcaption id="fig-dp-cap"><span class="tag research">Research branches</span>Each dot is one seed: Latch's accumulated training-update time divided by PyTorch's, at the first evaluation at or below the target. Left of parity (blue), Latch reached it sooner; right (orange), later. Studies 1–5 compare Latch at 2 × 1024 tokens per update with PyTorch at 128 × 1024 (16 accumulated microbatches of 8). Study 6 compares Latch at 32 × 1024 with a faster PyTorch implementation of batch 128 (4 microbatches of 32). <a href="sources.html#src-learning">Sources</a>.</figcaption>
-      </figure>
-      <div class="prose">
-        <p>In a single-seed pilot, Latch at 2 sequences per update reached dev loss 4.187 with 37.7M tokens and 661 s of update time, against 100.7M tokens and 960 s for PyTorch at 128 sequences. Fresh seeds on the same short schedule repeated the pattern. But changing only the learning-rate schedule to a longer horizon reversed it, and over the full long run PyTorch reached every target first on every seed. The likely cause: the short schedule's warmup was only 50 PyTorch updates, which produced large early gradient spikes. After both arms received an equal, predeclared schedule search, PyTorch still reached 3.50 and 3.30 first on all three new seeds. There is no repeatable time-to-quality win for batch 2.</p>
-        <p>The pilot's PyTorch arm was also slow: 16 microbatches of 8 sequences ran at 9.17 s per million tokens, against 4.10 s for the same batch as four microbatches of 32. The 62.5% and 31% figures from the pilot are historical and should not be cited as a benefit.</p>
-      </div>
-      <details class="spec">
-        <summary>Shared protocol of the learning studies</summary>
-        <dl>
-          <dt>Model</dt><dd><code>FlameF0X/TinyMoE-200m-2x16</code> @ <code>9b209f74</code>, unchanged architecture, random initialization (identical tensors per seed for both arms)</dd>
-          <dt>Data</dt><dd>FineWeb-Edu documents in a pinned split, TinyMoE tokenizer, 1,024-token windows, one shared order per seed</dd>
-          <dt>Precision</dt><dd>FP32 master weights and Adam moments; BF16 projections, attention and expert products; FP32 cross-entropy. PyTorch arms deterministic, TF32 off</dd>
-          <dt>Targets</dt><dd>Dev loss on 256 windows, first evaluation at or below the level; final dev on 2,048 windows and test on 4,096 reported separately</dd>
-          <dt>Clock</dt><dd>Accumulated synchronized complete-update time; compilation, warmup, evaluation, checkpointing and host data loading excluded. Not total elapsed time</dd>
-          <dt>Throughput</dt><dd>Same H100, paired: PyTorch 16 × 8 × 1024 at 1,219.4 ms per update; Latch 2 × 1024 at 35.33 ms — 1.86× PyTorch's time per token</dd>
-          <dt>Reports</dt><dd><span>Internal research report (not published in this draft)</span> (branch <code>codex/latch-tinymoe-smallbatch</code> @ <code>c1ef72cae</code>); <span>Internal research report (not published in this draft)</span> (branch <code>codex/tinymoe-batch-frontier</code> @ <code>f9268c21b</code>); historical pilot extract <a href="evidence/smallbatch-pilot.json">smallbatch-pilot.json</a></dd>
-        </dl>
-      </details>
-    </section>
-
     <section id="evidence" class="prose" aria-labelledby="ev-h">
       <h2 id="ev-h">Evidence</h2>
-      <p>The <a href="draft-notes.html#validation">validation summary</a> lists every check run on the final package, and <a href="evidence/final-package.json">final-package.json</a> extracts its measurements. <a href="sources.html">Sources</a> maps each number on this site to its evidence file or report. Reports on research branches are cited by branch and commit; they are not part of the public export.</p>
+      <p><a href="evidence/final-package.json">final-package.json</a> contains the package measurements. <a href="sources.html">Sources</a> identifies the evidence for each result. Full reports and reproduction instructions will accompany the open-source code.</p>
     </section>
   </div>
 </main>
@@ -266,9 +369,8 @@
 <footer class="site-footer">
   <div class="wrap">
     <span>Latch research preview</span>
-    <a href="methodology.html">Methodology</a>
-    <a href="sources.html">Sources for every number</a>
-    <a href="https://github.com/DeepakSingh98/latch-preview">Draft site source</a>
+    <a href="methodology.html">Results</a>
+    <a href="sources.html">Sources</a>
     <a data-repo-link hidden aria-disabled="true" href="get-started.html">Repository</a>
   </div>
 </footer>

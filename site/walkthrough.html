@@ -2,20 +2,20 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="robots" content="noindex, nofollow, noarchive">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Latch Walkthrough</title>
 <meta name="description" content="A visual walkthrough of training megakernels: one training update from first principles, conventional GPU execution, what Latch generates, what fusion can and cannot save, and measured case studies.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="assets/site.css?v=draft1">
+<link rel="stylesheet" href="assets/site.css?v=12">
 <script>document.documentElement.className += " js";</script>
 <script src="assets/config.js" defer></script>
-<script src="assets/walkthrough.js?v=5" defer></script>
+<script src="assets/reading.js" defer></script>
+<script src="assets/walkthrough.js?v=6" defer></script>
 <script>
   (function () {
     var moved = { "case-tinymoe": "methodology.html#case-tinymoe", "case-smelt": "methodology.html#case-smelt",
       "case-gradlev": "methodology.html#case-gradlev", "case-e2ttt": "methodology.html#case-e2ttt",
-      "headline-scope": "methodology.html#headline-scope", "run-it": "get-started.html#run-it",
+      "headline-scope": "sources.html#src-learning", "run-it": "get-started.html#run-it",
       "what-to-change": "get-started.html#what-to-change" };
     var h = location.hash.slice(1);
     if (moved[h]) location.replace(moved[h]);
@@ -31,9 +31,8 @@
     <nav aria-label="Main">
       <ul>
         <li><a href="walkthrough.html" aria-current="page">How it works</a></li>
-        <li><a href="get-started.html">Try Latch</a></li>
-        <li><a href="capabilities.html">Workloads</a></li>
-        <li><a href="methodology.html">Methodology</a></li>
+        <li><a href="capabilities.html">Open problems</a></li>
+        <li><a href="methodology.html">Results</a></li>
       </ul>
     </nav>
   </div>
@@ -42,10 +41,9 @@
 <main id="main">
   <div class="wrap">
     <div class="prose">
-      <p class="eyebrow">Walkthrough</p>
       <h1>How a training megakernel works</h1>
-      <p class="lede">Training a neural network repeats one update many times. This page builds that update from a single multiplication, shows how a GPU normally runs it, and then shows what changes when Latch compiles the whole update into one generated program, and what does not.</p>
-      <p class="small mute sans">Diagrams marked <span class="tag schematic">Schematic</span> explain mechanisms; their proportions are illustrative, not measured. Measured numbers appear only in text and tables that name their source. The figures work with a mouse, touch or keyboard; without JavaScript every step is shown in order.</p>
+      <p class="lede">A training update makes a prediction and measures its error. It then changes the weights. The example below shows this with two multiplications. We follow that update through PyTorch and a Latch megakernel.</p>
+      <p class="small mute sans">Use the controls to step through the diagrams. The diagrams explain execution. Measured timings are linked separately.</p>
     </div>
 
     <nav class="toc" aria-label="On this page">
@@ -53,7 +51,7 @@
         <li><a href="#update">One training update</a></li>
         <li><a href="#conventional">How GPUs usually run it</a></li>
         <li><a href="#megakernel">What Latch does</a></li>
-        <li><a href="#fusion">What fusion can and cannot save</a></li>
+        <li><a href="#fusion">Where the time goes</a></li>
         <li><a href="#workloads">Three kinds of workload</a></li>
         <li><a href="#results">Where the measurements are</a></li>
       </ol>
@@ -62,10 +60,10 @@
     <!-- 1 ─────────────────────────────────────────────────────────── -->
     <section id="update" class="chapter" aria-labelledby="update-h">
       <div class="prose">
-        <p class="kicker"><span class="n">01</span>First principles</p>
-        <h2 id="update-h">One training update, by hand</h2>
-        <p>A model is a calculation with adjustable numbers called <em>weights</em>. A training update has five parts: an <strong>input</strong>; a <strong>prediction</strong> computed from it; a <strong>loss</strong>, which measures how wrong the prediction is; the <strong>gradients</strong>, found by working backwards, which say how each weight affected the loss; and the <strong>changed weights</strong>, each moved a little in the direction that reduces the loss.</p>
-        <p>Below is the smallest example that shows every part: one input, two weights, one target. Step through it.</p>
+
+        <h2 id="update-h">One training update</h2>
+        <p>A model has adjustable numbers called <em>weights</em>. It uses these weights to turn an input into a prediction. A loss function measures the prediction error. Backpropagation computes how a small change in each weight would change the loss. The optimizer uses these <em>gradients</em> to update the weights.</p>
+        <p>The example has one input, two weights and one target.</p>
       </div>
 
       <figure class="fig" id="fig-update" aria-labelledby="fig-update-cap">
@@ -126,22 +124,22 @@
           <li data-n="09"><strong>Update.</strong> Move each weight against its gradient by a step size <em>η</em> = <span class="eq" data-v="lr">0.1</span>: <span class="eq">w₁ ← 0.5 − <span data-v="lr">0.1</span> × 1.5 = <span data-v="w1n">0.35</span></span> and <span class="eq">w₂ ← 1.5 − <span data-v="lr">0.1</span> × 0.5 = <span data-v="w2n">1.45</span></span>.</li>
           <li data-n="10"><strong>Check.</strong> Run the forward pass again with the new weights: <span class="eq">h = <span data-v="hn">0.7</span>, y = <span data-v="yn">1.015</span>, L = <span data-v="Ln">0.00011</span></span>, <span data-v="dir">down</span> from 0.125. <span data-v="verdict">One update made the prediction much better.</span></li>
         </ol>
-        <figcaption id="fig-update-cap"><span class="tag">Worked example</span>Dashed outlines mark values kept for the backward pass (<em>x</em>, <em>h</em>, <em>y</em>). Try η = 0.3: the step overshoots and the loss gets worse, which is why step sizes are tuned.</figcaption>
+        <figcaption id="fig-update-cap">Dashed outlines mark values saved for the backward pass: <i>x</i>, <i>h</i> and <i>y</i>. Try η = 0.3. The step is too large and the loss rises.</figcaption>
       </figure>
 
       <div class="prose">
-        <h3>The same five parts, at real scale</h3>
-        <p>A real model repeats this pattern with matrices instead of single numbers. TinyMoE-200M, the main example on this site, has 199,837,056 weights. Its forward pass includes attention and a router that sends every token to two of sixteen <em>experts</em> (small feed-forward networks). Its update is AdamW, which keeps two extra running averages for every weight. At 2 sequences of 512 tokens, one complete update — forward, loss, backward and AdamW — is the unit of work this site measures.</p>
-        <p>Two facts carry over from the toy example. Each step depends on earlier results, so the order matters. And intermediates such as <em>h</em> must be stored between the forward and backward passes. The rest of this page is about how a GPU handles those dependencies and that storage.</p>
+        <h3>From two weights to 200 million</h3>
+        <p>TinyMoE applies the same process to matrices. It has 199,837,056 weights. Its forward pass includes attention and expert layers. In each expert layer a router sends each token to two of sixteen small feed-forward networks. AdamW updates the weights using running averages of the gradients and their squares. We time the complete training update at several batch sizes.</p>
+        <p>Each operation must wait for its inputs. The backward pass also needs values from the forward pass. These values must remain available until they are used. The GPU must therefore coordinate both execution and storage.</p>
       </div>
     </section>
 
     <!-- 2 ─────────────────────────────────────────────────────────── -->
     <section id="conventional" class="chapter" aria-labelledby="conv-h">
       <div class="prose">
-        <p class="kicker"><span class="n">02</span>Conventional execution</p>
+
         <h2 id="conv-h">How GPUs usually run it</h2>
-        <p>A GPU runs work as <em>kernels</em>: programs launched by the CPU that spread one operation across the GPU's 132 streaming multiprocessors (SMs) on an H100. Frameworks such as PyTorch normally run each operation of the update — each multiply, the loss, each gradient, the optimizer — as its own kernel. A kernel reads its inputs from GPU memory and writes its result back, so the next kernel can find it.</p>
+        <p>A GPU runs programs called <em>kernels</em> across its streaming multiprocessors (SMs). Our H100 has 132 SMs. PyTorch dispatches tensor operations to kernels. Compilation can combine several operations into one kernel. Intermediate results passed between kernels usually go through GPU memory.</p>
         <p>There are three common ways to run the same sequence. Choose one to compare.</p>
       </div>
 
@@ -215,7 +213,7 @@
 <line class="ln-ink" x1="586" y1="68" x2="666" y2="68"/>
 <text x="586" y="63" font-size="10" class="t-mute">update</text>
 </svg></div>
-          <p class="status-line">Python issues every launch. With small kernels, the GPU sits idle waiting for the next one.</p>
+          <p class="status-line">Python issues each launch. The GPU can finish a small kernel before Python issues the next one. It then waits.</p>
         </div>
         <div data-group="conv" id="conv-compiled">
           <h3 class="panel-head no-js-only">torch.compile</h3>
@@ -269,7 +267,7 @@
 <line class="ln-ink" x1="392" y1="68" x2="416" y2="68"/>
 <text x="392" y="63" font-size="10" class="t-mute">update</text>
 </svg></div>
-          <p class="status-line">The compiler fuses some steps (here the loss and its gradient, and the optimizer), so there are fewer, cheaper launches. Each kernel still writes its result to memory.</p>
+          <p class="status-line">The compiler combines some operations. In this example it combines the loss with its gradient and fuses the optimizer operations. This reduces the number of launches. Results passed between kernels still go through GPU memory.</p>
         </div>
         <div data-group="conv" id="conv-graph">
           <h3 class="panel-head no-js-only">torch.compile with CUDA graphs</h3>
@@ -311,42 +309,42 @@
 <line class="ln-ink" x1="304" y1="68" x2="328" y2="68"/>
 <text x="304" y="63" font-size="10" class="t-mute">update</text>
 </svg></div>
-          <p class="status-line">A CUDA graph records the launches once and replays them with one host call. The GPU no longer waits for Python, but every kernel still starts, drains and round-trips its intermediates through GPU memory.</p>
+          <p class="status-line">A CUDA graph records the launches once and replays them with one host call. The GPU no longer needs a call from Python for each launch. Each kernel still has to start and finish. Intermediate results still pass through GPU memory.</p>
         </div>
-        <figcaption id="fig-conv-cap"><span class="tag schematic">Schematic</span>Three ways to run the toy update. Box widths and gaps illustrate mechanisms and are not measurements. Orange arrows are reads from and writes to GPU memory.</figcaption>
+        <figcaption id="fig-conv-cap">Three ways to run the toy update. Box widths and gaps illustrate mechanisms and are not measurements. Orange arrows are reads from and writes to GPU memory.</figcaption>
       </figure>
 
       <div class="prose">
-        <p>Compilation and CUDA graphs are strong baselines. Each comparison on this site uses the fastest conventional implementation we built for that workload that passed the same numerical checks, and names it. For the standard TinyMoE update that is compiled PyTorch without CUDA graphs, because no graph version has been built for it; the looped-TinyMoE and GradLev comparisons use CUDA graphs. <a href="methodology.html#measure">How we measure</a>.</p>
-        <p>At real scale the kernel count is large. For TinyMoE at its published batch size (16 accumulated microbatches of 8 × 1024 tokens per update), compiled PyTorch launched <strong>69,394 kernels per update</strong>; a reconstruction of the original Hugging Face Trainer setup launched 228,417. Latch launched 16 generated kernels, one per microbatch, plus 17 small scalar fills. <a href="sources.html#src-kernels">Source</a>.</p>
+        <p>Our controls use compiled PyTorch. Some also use CUDA graphs. The <a href="methodology.html#measure">benchmark methods</a> identify the control for each workload.</p>
+        <p>TinyMoE’s published batch contains 16 microbatches of 8 × 1024 tokens. An optimizer update follows all 16 microbatches. Compiled PyTorch launched <strong>69,394 kernels per update</strong>. A reconstruction of the original Hugging Face Trainer setup launched 228,417. Latch launched one generated kernel per microbatch and 17 small scalar fills. <a href="sources.html#src-kernels">Source</a>.</p>
       </div>
     </section>
 
     <!-- 3 ─────────────────────────────────────────────────────────── -->
     <section id="megakernel" class="chapter" aria-labelledby="mk-h">
       <div class="prose">
-        <p class="kicker"><span class="n">03</span>The compiler</p>
+
         <h2 id="mk-h">What Latch does</h2>
-        <p>A <em>training megakernel</em> runs a whole update — forward pass, loss, backward pass and weight update — inside one persistent GPU program that stays resident on every SM. Latch generates that program from model code in five stages.</p>
+        <p>A <em>training megakernel</em> performs the forward pass, loss, backward pass and weight update in one persistent GPU program. That program stays resident across the SMs for the whole update. Latch generates it from model code.</p>
       </div>
 
       <div class="fig">
         <ol class="pipeline" role="tablist" aria-label="Latch compilation stages">
           <li role="presentation"><button type="button" role="tab" id="st-1" aria-controls="sp-1" aria-selected="true"><span class="idx">1</span><span class="name">Supported model code</span><span class="what">nn.Module, objective, update rule</span></button></li>
           <li role="presentation"><button type="button" role="tab" id="st-2" aria-controls="sp-2" aria-selected="false" tabindex="-1"><span class="idx">2</span><span class="name">Captured computation</span><span class="what">forward, loss and optimizer as a graph</span></button></li>
-          <li role="presentation"><button type="button" role="tab" id="st-3" aria-controls="sp-3" aria-selected="false" tabindex="-1"><span class="idx">3</span><span class="name">Derivatives</span><span class="what">the backward graph</span></button></li>
+          <li role="presentation"><button type="button" role="tab" id="st-3" aria-controls="sp-3" aria-selected="false" tabindex="-1"><span class="idx">3</span><span class="name">Autograd</span><span class="what">PyTorch supplies the backward graph</span></button></li>
           <li role="presentation"><button type="button" role="tab" id="st-4" aria-controls="sp-4" aria-selected="false" tabindex="-1"><span class="idx">4</span><span class="name">Scheduling and storage</span><span class="what">phases, barriers, one memory arena</span></button></li>
           <li role="presentation"><button type="button" role="tab" id="st-5" aria-controls="sp-5" aria-selected="false" tabindex="-1"><span class="idx">5</span><span class="name">Generated GPU program</span><span class="what">CUDA, compiled on a CPU machine</span></button></li>
         </ol>
 
         <div class="stage-detail prose" role="tabpanel" id="sp-1" aria-labelledby="st-1" tabindex="0">
-          <h3 id="what-you-write">1 · You write ordinary PyTorch, within a supported set</h3>
-          <p>A model as an <code>nn.Module</code>, an objective function, and an optimizer written as a pure tensor function. For TinyMoE the model is a short adapter over the public Hugging Face checkpoint that keeps every parameter name and value. Attention and expert routing use a few operations Latch provides: <code>bf16_sdpa.sdpa</code>, <code>token_topk</code>, <code>route_order</code> and <code>ragged_mm</code>. Global-norm clipping plus AdamW is plain tensor arithmetic passed to <code>tensor_update</code>.</p>
-          <p class="mute">Latch is not a general PyTorch compiler. Operations outside its supported set are rejected at capture or lowering, and new architectures usually need an adapter and often compiler work.</p>
+          <h3 id="what-you-write">1 · Describe the model and update</h3>
+          <p>You supply the model as an <code>nn.Module</code>. You also supply an objective and an optimizer written as a pure tensor function. TinyMoE uses a short adapter over the public Hugging Face checkpoint. It preserves every parameter name and value. The adapter calls Latch’s attention and routing operations: <code>bf16_sdpa.sdpa</code>, <code>token_topk</code>, <code>route_order</code> and <code>ragged_mm</code>. Global-norm clipping and AdamW are tensor arithmetic passed to <code>tensor_update</code>.</p>
+          <p class="mute">We added TinyMoE’s routing and expert operations to the compiler and wrote the adapter. These are now included in the package. The build command generates the training program automatically.</p>
         </div>
         <div class="stage-detail prose" role="tabpanel" id="sp-2" aria-labelledby="st-2" tabindex="0">
           <h3>2 · Capture records the whole update as tensor operations</h3>
-          <p>Capture runs the model, objective and update rule once on example shapes and records every tensor operation, in order, as a graph. Nothing is executed on the GPU yet. TinyMoE's published-batch program captured 32,010 operations.</p>
+          <p>Capture traces the model and update rule at the supplied tensor shapes. It records their operations and dependencies as a graph. This runs on CPU. TinyMoE’s published-batch program captured 32,010 operations.</p>
 <pre><code>captured = capture_module(model, objective, (tokens,), (labels, coefficients),
                           optimizer=tensor_update(update, init_state=initialize,
                                                   forward_state=True),
@@ -354,20 +352,20 @@
           <p class="small mute">Abridged from <code>megakernel_lab/tinymoe/build.py</code>.</p>
         </div>
         <div class="stage-detail prose" role="tabpanel" id="sp-3" aria-labelledby="st-3" tabindex="0">
-          <h3>3 · Latch differentiates the captured graph</h3>
-          <p>From the forward graph Latch derives the backward graph — the same chain rule as steps 5–8 of the toy example, applied to every operation. It also records which forward intermediates the backward pass will read, which becomes a storage requirement in the next stage.</p>
-          <p>For expert routing, the backward pass must scatter gradients back to the tokens that chose each expert; segment sizes change every update. Supporting that gradient was work on the compiler, not on the model.</p>
+          <h3>3 · PyTorch supplies the gradients</h3>
+          <p>PyTorch autograd supplies the backward operations during capture. It applies the chain rule as in steps 5–8 of the example. Latch records these operations with the forward pass and optimizer. Latch provides derivative rules for its custom operations such as expert products and BF16 attention.</p>
+          <p>The graph records which forward values the backward pass needs. Expert gradients must also return to the tokens routed through each expert. The number of tokens per expert changes at every update.</p>
         </div>
         <div class="stage-detail prose" role="tabpanel" id="sp-4" aria-labelledby="st-4" tabindex="0">
           <h3>4 · Scheduling and storage</h3>
-          <p>Latch groups operations into <em>phases</em> spread across all 132 SMs. Inside a phase, steps can be fused so their intermediates stay in registers or shared memory. Where one phase needs results produced by other SMs, Latch places a <em>grid-wide barrier</em>: every SM waits until all have finished. Every value that must survive across phases gets a place in one planned memory <em>arena</em> in GPU memory.</p>
+          <p>Latch groups operations into phases across all 132 SMs. Operations within a phase can share intermediate values in registers or shared memory. A phase that needs results from other SMs must wait for them. Latch enforces this with a <em>grid-wide barrier</em>. Values passed between phases are stored in a planned GPU-memory arena.</p>
           <p>The plan also fixes a numerical policy. TinyMoE's practical policy keeps FP32 master weights and Adam moments and uses BF16 matrix products and attention.</p>
         </div>
         <div class="stage-detail prose" role="tabpanel" id="sp-5" aria-labelledby="st-5" tabindex="0">
           <h3>5 · Generation and compilation</h3>
-          <p>Latch emits CUDA from reusable hand-written operation bodies — Hopper tensor-core matrix products, attention, routing and reductions — and compiles it with <code>nvcc</code> on a CPU-only machine. TinyMoE is split into 16 separately compiled device units linked behind one kernel entry.</p>
-          <p>The result for TinyMoE is one cooperative kernel with 132 blocks, plus three scalar fills and five small copies per update. With this package the cold build for 2 × 512 tokens takes 283 seconds on a dedicated 64-vCPU machine, including model loading, capture, generation and linking, half the previous compiler's 544 seconds on the same machine, with byte-identical output. <a href="sources.html#src-final">Source</a>.</p>
-          <p class="mute">Each build is a new binary. Its speed and numerics must be checked again; qualification attaches to exact binaries, not to build flags.</p>
+          <p>Latch emits CUDA using reusable hand-written implementations of matrix products, attention, routing and reductions. It compiles this code with <code>nvcc</code> on a CPU-only machine. TinyMoE’s code is divided into 16 device units. These compile separately and link into one kernel.</p>
+          <p>TinyMoE runs as one cooperative kernel with 132 blocks. Each update also needs three scalar fills and five small copies. A cold build at 2 × 512 tokens takes 283 seconds on a dedicated 64-vCPU machine. This includes model loading, capture, generation and linking. The previous compiler took 544 seconds on the same machine. Both produce byte-identical output. <a href="sources.html#src-final">Source</a>.</p>
+          <p class="mute">Use the generated program’s comparison and numerical-check commands before starting a new experiment.</p>
         </div>
       </div>
     </section>
@@ -375,9 +373,9 @@
     <!-- 4 ─────────────────────────────────────────────────────────── -->
     <section id="fusion" class="chapter" aria-labelledby="fusion-h">
       <div class="prose">
-        <p class="kicker"><span class="n">04</span>Limits of fusion</p>
-        <h2 id="fusion-h">What fusion can and cannot save</h2>
-        <p>Fusing the update into one program removes kernel boundaries and some trips to memory. It does not remove the work itself. Compare the same update both ways, then highlight each kind of cost.</p>
+
+        <h2 id="fusion-h">Where the time goes</h2>
+        <p>Combining operations removes kernel boundaries and some trips to memory. The arithmetic remains. Use the controls to compare the execution costs.</p>
       </div>
 
       <figure class="fig" id="fig-fuse" data-hl="none" aria-labelledby="fig-fuse-cap">
@@ -579,7 +577,7 @@
 </svg></div>
         </div>
         <p class="status-line js-only" id="fuse-explain" aria-live="polite"></p>
-        <figcaption id="fig-fuse-cap"><span class="tag schematic">Schematic</span>Five of 132 SMs shown. Blue bars are arithmetic; orange shading marks kernel boundaries or SMs waiting at a barrier; orange arrows are intermediate traffic; grey arrows are weight and optimizer-state traffic. Not to scale.</figcaption>
+        <figcaption id="fig-fuse-cap">Five of 132 SMs shown. Blue bars show arithmetic. Orange shading marks kernel boundaries and time spent waiting at barriers. Orange arrows show intermediate traffic. Grey arrows show weight and optimizer-state traffic. Not to scale.</figcaption>
       </figure>
 
       <div class="table-wrap">
@@ -599,28 +597,33 @@
 
       <div class="prose">
         <h3>The weights do not fit on chip</h3>
-        <p>A megakernel keeps some intermediates in registers and shared memory, but the model itself lives in GPU memory. For TinyMoE, the FP32 weights and the two AdamW moment buffers alone are about twenty times larger than all of the H100's on-chip storage combined, so they are read from and written to GPU memory on every update.</p>
+        <p>A megakernel can keep intermediate values in registers and shared memory. TinyMoE’s weights and AdamW state must stay in GPU memory. Together they occupy about twenty times the H100’s total on-chip storage. Each update must read and write them.</p>
       </div>
-      <figure class="fig" aria-labelledby="fig-mem-cap">
-        <div class="bars" role="img" aria-label="TinyMoE FP32 weights and two Adam moments: 2.40 gigabytes. All H100 on-chip storage combined: about 0.12 gigabytes.">
-          <div class="bar"><span class="lab">TinyMoE weights + 2 Adam moments, FP32</span><span class="track"><span class="fill" style="width:100%"></span></span><span class="val">2.40 GB</span></div>
-          <div class="bar latch"><span class="lab">H100 registers + L1/shared + L2</span><span class="track"><span class="fill" style="width:4.97%"></span></span><span class="val">0.12 GB</span></div>
-        </div>
-        <figcaption id="fig-mem-cap"><span class="tag">Computed</span>199,837,056 parameters × 4 bytes × 3 buffers = 2.40 GB; gradients and activations not included. On-chip: 132 SMs × (256 KB registers + 256 KB L1/shared memory) + 50 MB L2 ≈ 0.12 GB, from NVIDIA's Hopper Tuning Guide. Not a measurement. <a href="sources.html#src-h100">Sources</a>.</figcaption>
+      <figure class="time-chart" style="--chart-steps:5" aria-labelledby="fig-mem-cap">
+<div class="time-row" data-values="2.4" data-scale="2.5">
+<div class="time-label"><span>TinyMoE weights + two Adam moments</span><span>2.40 GB</span></div>
+<div class="time-track" aria-hidden="true"><span class="time-fill" style="width:96.0000%"></span>
+</div></div>
+<div class="time-row" data-values="0.12" data-scale="2.5">
+<div class="time-label"><span>H100 registers + L1/shared + L2</span><span>0.12 GB</span></div>
+<div class="time-track" aria-hidden="true"><span class="time-fill" style="width:4.8000%"></span>
+</div></div>
+<div class="time-axis" aria-hidden="true"><span>0</span><span>0.5</span><span>1</span><span>1.5</span><span>2</span><span>2.5</span></div>
+<figcaption id="fig-mem-cap">199,837,056 parameters × 4 bytes × 3 buffers = 2.40 GB. This excludes gradients and activations. On-chip storage: 132 SMs × (256 KB registers + 256 KB L1/shared memory) + 50 MB L2 ≈ 0.12 GB. These capacities come from NVIDIA’s Hopper Tuning Guide. <a href="sources.html#src-h100">Sources</a>.</figcaption>
       </figure>
 
       <div class="prose">
-        <h3>One kernel does not guarantee high utilization</h3>
-        <p>Removing boundaries helps most when each piece of work is small, because launch and boundary costs then dominate. When the work is large, conventional execution already keeps the GPU busy, and the quality of each matrix product and attention body decides the result. Barriers can also leave SMs idle while the slowest one finishes. The <a href="capabilities.html#slower">catalogue</a> lists measured cases that are slower under Latch for these reasons.</p>
+        <h3>Operation size matters</h3>
+        <p>Removing kernel boundaries helps most when each operation is small. Large matrix products depend more on the quality of the matrix and attention implementations. Grid barriers can also waste time: fast SMs must wait for slower ones.</p>
       </div>
     </section>
 
     <!-- 5 ─────────────────────────────────────────────────────────── -->
     <section id="workloads" class="chapter" aria-labelledby="wl-h">
       <div class="prose">
-        <p class="kicker"><span class="n">05</span>Workloads</p>
+
         <h2 id="wl-h">Three kinds of workload</h2>
-        <p>Whether a megakernel helps depends on the shape of the work. Three shapes recur in the measurements.</p>
+        <p>These three workloads illustrate where megakernels help and where they need more work.</p>
       </div>
 
       <div role="tablist" aria-label="Workload shapes" id="wl-tabs">
@@ -656,17 +659,17 @@
 <line x1="224" y1="104" x2="344" y2="104" style="stroke:var(--paper)" stroke-width="1"/>
 <text x="224" y="16" font-size="10.5" class="t-mute">large matmul</text>
 <text x="4" y="140" font-size="10.5" class="t-mute">each kernel keeps all SMs busy for a long time</text></svg>
-            <figcaption><span class="tag schematic">Schematic</span>Big batches and long contexts make each operation large.</figcaption>
+            <figcaption>Big batches and long contexts make each operation large.</figcaption>
           </figure>
           <div class="facts">
-            <h4>Conventional execution</h4>
-            <p>Each kernel is big enough to keep every SM busy for a long time, so launch and boundary costs are a small share of the update. Vendor matrix and attention libraries are highly tuned for exactly this case.</p>
-            <h4>Opportunity</h4>
-            <p>Small: fusing the elementwise glue between large operations and avoiding some intermediate round trips.</p>
-            <h4>Limits</h4>
-            <p>Latch's own matrix and attention bodies have to match cuBLAS and FlashAttention, and many barrier-separated glue phases add up.</p>
-            <h4>Measured</h4>
-            <p>TinyMoE at its published batch (8 × 1024 tokens per microbatch): 977.2 ms versus 1,088.4 ms compiled, only 1.11× faster <span class="tag hist">Historical</span>. Granite 3.0-1B-A400M at 4,096 tokens: 161.45 ms versus 97.89 ms, <strong>1.65× slower</strong> <span class="tag hist">Historical · not qualified</span>. See also <a href="#case-e2ttt">E2-TTT outer training</a>, about 3× slower <span class="tag research">Research branch</span>.</p>
+
+            <p>Each large kernel can keep the SMs busy for a long time. Launch and boundary costs account for a small share of the update. Vendor matrix and attention libraries are highly tuned for this work.</p>
+
+            <p>Fusion can combine the elementwise operations between large matrix products. It can also avoid some writes and reads of intermediate values. The potential saving is small relative to the matrix work.</p>
+
+            <p>Latch’s matrix and attention implementations need to match cuBLAS and FlashAttention. Frequent barriers between small operations add further cost.</p>
+
+            <p>TinyMoE at its published batch (8 × 1024 tokens per microbatch): 977.2 ms versus 1,088.4 ms compiled, 1.11× faster <span class="tag hist">Historical</span>. Granite 3.0-1B-A400M at 4,096 tokens: 161.45 ms versus 97.89 ms, <strong>1.65× slower</strong> <span class="tag hist">Historical · not qualified</span>. See also <a href="#case-e2ttt">E2-TTT outer training</a>, about 3× slower <span class="tag research">Research branch</span>.</p>
           </div>
         </div>
       </div>
@@ -733,16 +736,16 @@
 <text x="4" y="12" font-size="10.5" class="t-mute">tokens</text>
 <text x="120" y="56" font-size="10.5" class="t-mute">16 experts: ragged, changing sizes</text>
 <text x="4" y="140" font-size="10.5" class="t-mute">top-2 routing: each token picks two experts every update</text></svg>
-            <figcaption><span class="tag schematic">Schematic</span>Each expert receives a different number of tokens, and the numbers change every update.</figcaption>
+            <figcaption>The token count differs between experts and changes at every update.</figcaption>
           </figure>
           <div class="facts">
-            <h4>Conventional execution</h4>
-            <p>Routing, counting, sorting tokens by expert, the ragged expert products and the gradient scatter become many small kernels. At small batches each is tiny, so boundaries dominate. Data-dependent sizes also complicate CUDA-graph capture: the strongest TinyMoE graph control on this site captures forward and backward but runs the optimizer and some bookkeeping outside the graph.</p>
-            <h4>Opportunity</h4>
-            <p>Large: routing, ragged products and scatter run inside one program with no host round trip and no per-kernel startup.</p>
-            <h4>Limits</h4>
-            <p>Latch's grouped products are slower than cuBLAS and CUTLASS grouped GEMMs; a deterministic gradient scatter is expensive when each token visits many experts; the advantage shrinks as batches grow.</p>
-            <h4>Measured</h4>
+
+            <p>Conventional execution uses many small kernels to route tokens and compute expert outputs and gradients. Kernel boundaries can account for much of the time at small batches. Variable expert sizes also complicate CUDA-graph capture. The standard TinyMoE control uses compiled layers. The looped model has a separate control that captures forward and backward in a CUDA graph.</p>
+
+            <p>Latch combines routing, expert products and gradient scatter in one program. These operations no longer need separate launches or host calls.</p>
+
+            <p>Latch’s grouped products are slower than cuBLAS and CUTLASS grouped GEMMs. Deterministic gradient scatter is expensive when each token visits many experts. The overall advantage shrinks as batches grow.</p>
+
             <p>TinyMoE-200M complete training update, 2 × 512 tokens: 12.6 ms versus 64.5 ms for compiled PyTorch, <strong>5.1× faster</strong>; 32 × 1024 tokens: 79.9 versus 139.2 ms, <strong>1.74× faster</strong> <span class="tag v0">In this package</span>.</p>
           </div>
         </div>
@@ -792,17 +795,17 @@
 <rect class="k-soft" x="70" y="112" width="8" height="8"/><text x="82" y="120" font-size="10" class="t-mute">score</text>
 <rect class="fill-cost" x="128" y="112" width="8" height="8"/><text x="140" y="120" font-size="10" class="t-mute">update fast state</text>
 <text x="4" y="142" font-size="10.5" class="t-mute">each step is tiny and must wait for the one before it</text></svg>
-            <figcaption><span class="tag schematic">Schematic</span>Test-time learning updates a small "fast" state after every token.</figcaption>
+            <figcaption>Test-time learning updates a small "fast" state after every token.</figcaption>
           </figure>
           <div class="facts">
-            <h4>Conventional execution</h4>
-            <p>Thousands of tiny steps must run strictly in order. Even replayed from a CUDA graph, each step is still about nineteen separate kernels, and the fast state goes back to GPU memory between them.</p>
-            <h4>Opportunity</h4>
-            <p>Large, when the changing state is small: it can stay in shared memory, split across SMs, for the whole sequence, and all steps run in one launch.</p>
-            <h4>Limits</h4>
-            <p>Every step still needs grid barriers, frozen weights such as the output head are read from GPU memory at every token, and larger adapted blocks do not fit on chip.</p>
-            <h4>Measured</h4>
-            <p>GradLev on GPT-2 small, a complete block of 1,024 dependent steps (adaptation, not training): 54.0 ms versus 189.5 ms for the strongest CUDA-graph control, <strong>3.5× faster</strong> <span class="tag v0">In this package</span>. Online adaptation of TinyMoE's last two expert blocks: <strong>1.26–1.67× slower</strong> than a compiled, CUDA-graph-replayed control <span class="tag research">Research branch</span>.</p>
+
+            <p>These learning steps must run in order. The conventional GradLev implementation uses about eighteen kernels per step even with CUDA graphs. The changing state passes through GPU memory between them.</p>
+
+            <p>A small changing state can be divided across SMs and kept in shared memory for the whole sequence. All learning steps then run in one launch.</p>
+
+            <p>Each step still needs grid barriers. The output head is too large to stay on chip and must be read from GPU memory at every token. Larger adapted blocks also exceed on-chip capacity.</p>
+
+            <p>GradLev on GPT-2 small, a complete block of 1,024 adaptation steps: 54.0 ms versus 189.5 ms for the strongest CUDA-graph control, <strong>3.5× faster</strong> <span class="tag v0">In this package</span>. Online adaptation of TinyMoE's last two expert blocks: <strong>1.26–1.67× slower</strong> than a compiled, CUDA-graph-replayed control <span class="tag research">Research branch</span>.</p>
           </div>
         </div>
       </div>
@@ -811,9 +814,9 @@
     <!-- 6 ─────────────────────────────────────────────────────────── -->
     <section id="results" class="chapter" aria-labelledby="ev-h">
       <div class="prose">
-        <p class="kicker"><span class="n">06</span>Evidence</p>
+
         <h2 id="ev-h">Where the measurements are</h2>
-        <p>This page explains mechanisms. The measured results — TinyMoE training updates, looped TinyMoE, GradLev adaptation and a slower case, E2-TTT — are on the <a href="methodology.html#results">methodology page</a>, each with its configuration, control, clock and reproduction commands. The <a href="methodology.html#learning">training-to-quality experiments</a> and the earlier <a href="methodology.html#headline-scope">small-batch studies</a> are there too. Commands for the packaged examples are on <a href="get-started.html#run-it">Try Latch</a>.</p>
+        <p>The <a href="methodology.html#results">results page</a> describes each benchmark’s model, control and timing method. It also covers <a href="methodology.html#learning">training to a target quality</a>. The code release will include runnable examples.</p>
         <p class="moved" aria-hidden="true"><span id="case-tinymoe"></span><span id="case-smelt"></span><span id="case-gradlev"></span><span id="case-e2ttt"></span><span id="headline-scope"></span><span id="run-it"></span><span id="what-to-change"></span></p>
       </div>
     </section>
@@ -823,8 +826,7 @@
 <footer class="site-footer">
   <div class="wrap">
     <span>Latch v0 research preview</span>
-    <a href="sources.html">Sources for every number</a>
-    <a href="https://github.com/DeepakSingh98/latch-preview">Draft site source</a>
+    <a href="sources.html">Sources</a>
     <a data-repo-link hidden aria-disabled="true" href="get-started.html">Repository</a>
   </div>
 </footer>

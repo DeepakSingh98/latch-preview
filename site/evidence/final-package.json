@@ -15,7 +15,10 @@
       "ratio": 0.1948,
       "samples": "5 alternating pairs x 16 updates per arm (80)",
       "second_host": "12.56 vs 72.01 ms compiled-grouped (installed-wheel run, us-east5-a)",
-      "exactness": "32 updates bitwise equal to the v0 option set; repeat and update 15->32 restart bitwise; FP64 audits at updates 1 and 32 pass (policy 5bf7eb5d)"
+      "exactness": "32 updates bitwise equal to the v0 option set; repeat and update 15->32 restart bitwise; FP64 audits at updates 1 and 32 pass (policy 5bf7eb5d)",
+      "trained_state_audit": "added 2026-10-20: FAILS the unchanged gate from a trained state after 320,000 updates (4 of 663 tensors 0.083-0.089); same-state diagnosis: BF16 precision sensitivity, conventional also fails 1 of 5 cases; not qualified at trained states; see release-learning.json small_batch",
+      "time_to_quality": "added 2026-10-20: release default recipe, three paired seeds vs same-batch compiled-grouped: validation loss 4.10 in 6,419-6,643 s vs 34,406-40,188 s (ratio 0.162-0.187, 5.3-6.2x shorter); 3.30 reached by neither; not qualified (trained-state audit above); see release-learning.json small_batch.time_to_quality",
+      "receipts": ["t-lv0n-gpu-06/wy-paired-compiled-grouped", "t-lv0n-gpu-01/wx-screen", "t-lv0n-gpu-01/wc1-restart", "t-lv0n-gpu-01/wc3-auto-vs-none", "t-lv0n-cpu-03/y-audit-000001", "t-lv0n-cpu-03/y-audit-000032", "t-lv0n-gpu-08-z1/i1-tinymoe"]
     },
     {
       "id": "tinymoe-recipe-q",
@@ -27,7 +30,9 @@
       "frozen_latch_ms": 116.478,
       "ratio": 0.5742,
       "samples": "5 alternating rounds x 4 states x 64 updates",
-      "exactness": "bitwise vs the frozen L32 executor on fresh/mid/late/q; repeat; restart protocol; 512-update continuation"
+      "exactness": "bitwise vs the frozen L32 executor on fresh/mid/late/q; repeat; restart protocol; 512-update continuation",
+      "time_to_quality": "added 2026-10-20: measured full training runs, three paired seeds, validation loss 3.30 in 958-1,021 s vs 1,697-1,789 s for C32 (ratio 0.558-0.592); fresh and trained-state FP64 audits pass; see release-learning.json recipe_q",
+      "receipts": ["t-lv0n-gpu-06/z9-final", "t-lv0n-gpu-01/v2-c-*", "t-lv0n-gpu-01/v5-c-cont", "t-lv0n-gpu-01/v6-runs-*"]
     },
     {
       "id": "selective-b2",
@@ -39,7 +44,8 @@
       "control_ms": 66.454,
       "ratio": 0.1547,
       "exactness": "bitwise vs the frozen pre-rowchain pair on 4 states x 3 cycles; restart at 24; 512-microbatch continuation; conventional agreement from trained state M max |dloss| 0.00237",
-      "note": "frozen rule's slow-group beta1 bias correction is nonstandard (1-0.9^t with microbatch-equivalent t); losses diverge from the conventional counterpart from zero optimizer state"
+      "note": "frozen rule's slow-group beta1 bias correction is nonstandard (1-0.9^t with microbatch-equivalent t); losses diverge from the conventional counterpart from zero optimizer state",
+      "receipts": ["t-lv0n-gpu-02/sh-bench", "t-lv0n-gpu-02/xe-sequence", "t-lv0n-gpu-02/xf-agree-m", "t-lv0n-gpu-02/sc-eq-ref"]
     },
     {
       "id": "selective-b1",
@@ -47,12 +53,10 @@
       "kind": "complete training, two programs",
       "latch_ms": 8.72,
       "control": "fast-weight-groups same-semantics compiled-grouped implementation, same GPU",
-      "control_ms": [
-        64.0,
-        64.7
-      ],
+      "control_ms": [64.0, 64.7],
       "ratio": 0.136,
-      "exactness": "bitwise vs the frozen reference on 4 states x 3 cycles; restart at 48; 512-microbatch continuation"
+      "exactness": "bitwise vs the frozen reference on 4 states x 3 cycles; restart at 48; 512-microbatch continuation",
+      "receipts": ["t-lv0n-gpu-03/bh-bench", "t-lv0n-gpu-08-z1/bz-conv-e2", "t-lv0n-gpu-08-z1/bz-conv-m2"]
     },
     {
       "id": "smelt-r2",
@@ -63,7 +67,8 @@
       "control_ms": 154.22,
       "ratio": 0.7445,
       "example": "B8 x 512: 25.6 vs 40.9 ms",
-      "exactness": "bitwise vs the donor program from fresh/q/L; repeat; restart"
+      "exactness": "bitwise vs the donor program from fresh/q/L; repeat; restart",
+      "receipts": ["t-lv0n-gpu-04/w1-*", "t-lv0n-gpu-04/t9-*", "t-lv0n-gpu-04/x5-collect"]
     },
     {
       "id": "gradlev-p1b",
@@ -76,11 +81,9 @@
       "control_ms": 189.53,
       "ratio": 0.2848,
       "external_operations": "block clock includes eager trunk prefill (7.5 ms median), staging, reset and read-back; loop alone 46.2 ms",
-      "kernels_per_block": {
-        "latch": 1,
-        "control": 18176
-      },
-      "exactness": "bitwise vs the frozen GRADLEV-LATCH kernel; repeat, carried 512+512 and 333+691, new-process restart, reset, short counts bitwise; 1,024 held-out test blocks identical (adapted 3.308258 pretrained, 3.167791 trained)"
+      "kernels_per_block": {"latch": 1, "control": 18176},
+      "exactness": "bitwise vs the frozen GRADLEV-LATCH kernel; repeat, carried 512+512 and 333+691, new-process restart, reset, short counts bitwise; 1,024 held-out test blocks identical (adapted 3.308258 pretrained, 3.167791 trained)",
+      "receipts": ["t-lv0n-gpu-07-z2/g20-p1b-fresh", "t-lv0n-gpu-07-z2/g21-p1b-trained", "t-lv0n-gpu-07-z2/g30-check-fresh", "t-lv0n-gpu-07-z2/g31-check-trained", "t-lv0n-gpu-07-z2/g40-heldout-fresh", "t-lv0n-gpu-07-z2/g41-heldout-trained"]
     },
     {
       "id": "gradlev-p1",
@@ -91,23 +94,19 @@
       "control": "CUDA graph, hybrid head (graph_hybrid)",
       "control_ms": 161.34,
       "ratio": 0.5601,
-      "exactness": "bitwise vs the frozen P1 kernel; all state checks pass"
+      "exactness": "bitwise vs the frozen P1 kernel; all state checks pass",
+      "receipts": ["t-lv0n-gpu-07-z2/g22-p1", "t-lv0n-gpu-07-z2/g32-check-p1"]
     },
     {
       "id": "build-e2ttt",
       "workload": "E2-TTT-MLP 4 layers, B1 x 8,192 build (LATCH-BUILD-600 probe), uninstrumented",
       "kind": "compilation",
-      "previous_s": [
-        543.6,
-        546.8
-      ],
-      "this_release_s": [
-        282.6,
-        282.9
-      ],
+      "previous_s": [543.6, 546.8],
+      "this_release_s": [282.6, 282.9],
       "capture_s": 66,
       "ratio": 0.52,
-      "exactness": "program.cu 57f135ee, manifest.json c5a7f65d, bindings and headers identical (16 files)"
+      "exactness": "program.cu 57f135ee, manifest.json c5a7f65d, bindings and headers identical (16 files)",
+      "receipts": ["t-lv0n-cpu-05/k1-e2-base", "t-lv0n-cpu-05/k2-e2-cand", "t-lv0n-cpu-06/k1-e2-cand", "t-lv0n-cpu-06/k2-e2-base"]
     },
     {
       "id": "build-tinymoe",
@@ -117,19 +116,13 @@
       "example_this_release_s": 283.1,
       "recipe_q_previous_s": 463.3,
       "recipe_q_this_release_s": 241.9,
-      "capture_previous_s": [
-        103.0,
-        104.3
-      ],
-      "capture_this_release_s": [
-        49.1,
-        49.9
-      ],
-      "exactness": "identical generated source and bindings"
+      "capture_previous_s": [103.0, 104.3],
+      "capture_this_release_s": [49.1, 49.9],
+      "exactness": "identical generated source and bindings",
+      "receipts": ["t-lv0n-cpu-06/k3-ex-rc1", "t-lv0n-cpu-06/k4-ex-cand", "t-lv0n-cpu-05/k3-q-rc1", "t-lv0n-cpu-05/k4-q-cand"]
     }
   ],
   "slower_reference": {
     "e2ttt_outer_training": "Latch 9.12 s (default build) vs torch.compile max-autotune 3.05 s per 64 x 2,048-token update; research branch, not packaged"
-  },
-  "draft_note": "Public measurement summary. Internal source paths, worker IDs and receipt locations are omitted from this draft; the originals are retained privately."
+  }
 }

@@ -1,0 +1,61 @@
+{
+ "schema": "latch-research-skip-gate-evidence-v1",
+ "label": "Research branch: not a packaged capability; implementation not integrated",
+ "question": "do U-Net skips and attention gates improve learning per training token on TinyMoE R1 (recipe-stack)?",
+ "workload": "TinyMoE finer experts 32 x 384 top-4, 12 physical layers with layers 3-8 visited twice, B2 x 1024, 655,360,000 tokens, Latch programs only; seeds 1911-1913",
+ "tokens_to_3_30_interpolated_mean_millions": {
+  "A_R1": 328.3,
+  "B_skips": 339.5,
+  "C_gates": 325.5,
+  "D_both": 321.7
+ },
+ "test_mean": {
+  "A_R1": 3.1073,
+  "B_skips": 3.1123,
+  "C_gates": 3.1044,
+  "D_both": 3.0992
+ },
+ "median_update_ms": {
+  "A_R1": 24.5,
+  "B_skips": 24.7,
+  "C_gates": 26.2,
+  "D_both": 26.3
+ },
+ "verdicts": {
+  "B": "skips alone hurt on 3/3 seeds",
+  "C": "gates alone mixed",
+  "D": "both help on 3/3 seeds: 0.97-0.99x tokens to 3.30, test -0.008 mean; about 1.05x measured update seconds to 3.30"
+ },
+ "unresolved": [
+  "D (pack-g3-sg) fails one FP64 trained-state audit update: layer-6 input_layernorm gain gradient rel-L2 0.101 vs gate 0.08 (the other update passes at 0.048); reported as a limitation, not waived",
+  "rpackb (norm_fusion fused backward RoPE/GQA unpack) produces wrong k_proj gradients when a per-head gate sits between attention and o_proj (rel-L2 up to 0.51); not root-caused; C/D were rebuilt without rpackb; the lane compiled with source byte-identical to the released 0.9.0rc1 compiler (no src/ difference), so the defect is present in the release; packaged workloads do not have this graph and pass their audits",
+  "whether the D gain comes from input-dependent gating or from halving attention is not established"
+ ],
+ "confirmation_keys": [
+  "comparisons",
+  "missing",
+  "per_run",
+  "seeds"
+ ],
+ "report": {
+  "path": "research/tinymoe_skip_gate/RESULTS.md",
+  "branch": "codex/latch-skip-gate",
+  "commit": "b26f03d32",
+  "source_files": [
+   {
+    "branch": "codex/latch-skip-gate",
+    "commit": "b26f03d32e6b145b1478cec649fc3015488723e9",
+    "path": "research/tinymoe_skip_gate/results/confirmation/confirmation.json",
+    "sha256": "425938f239693418529b4176f0eb5937c12b085cca0b7f498a4711db875ba568",
+    "bytes": 47033
+   },
+   {
+    "branch": "codex/latch-skip-gate",
+    "commit": "b26f03d32e6b145b1478cec649fc3015488723e9",
+    "path": "research/tinymoe_skip_gate/RESULTS.md",
+    "sha256": "6871b52cd324d63928f4633ea98ac577af931f1f072c8a1d1b9ab23bcd10a6b5",
+    "bytes": 17921
+   }
+  ]
+ }
+}

@@ -5,10 +5,51 @@
   "runtime_validation_commit": "904596e7845b51323ca111e0e5e43c9616121054",
   "runtime_content_sha256": "18874cabf93c5afabf619a96613ca5f9f4f685b2e0e7002bc2da7854a6b0f034",
   "runtime_files": 382,
+  "source_manifest": "../../RELEASE_MANIFEST.json",
+  "validation_guide": "../../docs/v0/VALIDATION.md",
+  "packaging_decision": "../../docs/v0/PACKAGING.md",
   "publication_decisions": [
     "Original-code license",
     "Public repository URL"
   ],
+  "reports": {
+    "initial-installation.json": {
+      "path": "../../docs/v0/evidence/initial-installation.json",
+      "sha256": "6f6cb92f120c943b66d34c764298e8d707e80b39f4bc15805a3e44036fbf5383"
+    },
+    "cpu-regressions.json": {
+      "path": "../../docs/v0/evidence/cpu-regressions.json",
+      "sha256": "c2d7591032b84575cb5f8cce8ee1ba559c0c83f9268cc2e883640d59061e471f"
+    },
+    "public-assets.json": {
+      "path": "../../docs/v0/evidence/public-assets.json",
+      "sha256": "6e0bb05bd9ac5b15505cf6c21ec396ab529ee65bdb05520f5a2cfac5cc0af2a9"
+    },
+    "cold-builds.json": {
+      "path": "../../docs/v0/evidence/cold-builds.json",
+      "sha256": "2952a2a9433ff7438b12e62ed48149945561d7a3935513b0516edc8d999cf73b"
+    },
+    "tinymoe-gpu.json": {
+      "path": "../../docs/v0/evidence/tinymoe-gpu.json",
+      "sha256": "298d3cbd01e4440c3a35779117152f75aee94c540a1713ac263555197d3c2a85"
+    },
+    "numerical-audits.json": {
+      "path": "../../docs/v0/evidence/numerical-audits.json",
+      "sha256": "c841547c67b061ab2f2e803462e3d9a461722a9c1b62decf654a95d5b6ad1c8d"
+    },
+    "fast-examples.json": {
+      "path": "../../docs/v0/evidence/fast-examples.json",
+      "sha256": "a1870db935eb3767554997a10eb7c5dc37cb4b868fb497e6086fe3095c668809"
+    },
+    "learning-machinery.json": {
+      "path": "../../docs/v0/evidence/learning-machinery.json",
+      "sha256": "72aeca95e08d0f87fd75c8477e66abbef088e2054fd76d3679e11b8ecc60f03c"
+    },
+    "source-custody.json": {
+      "path": "../../docs/v0/evidence/source-custody.json",
+      "sha256": "0cef0feda1b30177beabe493d505ca64f3c35198a95051475f397b8aa682a109"
+    }
+  },
   "limits": [
     "Private moe4 runtime and CLI are not shipped; historical four-H100 evidence is not v0 qualification.",
     "Learning machinery audits cover only its first two fresh updates, not update 128 or a learning advantage.",
@@ -16,8 +57,8 @@
     "Historical donor timing, qualification and learning evidence does not qualify changed runtime bytes."
   ],
   "study_classification": {
+    "path": "../../docs/v0/evidence/schedule-studies.json",
     "sha256": "a5e8215c5ff05694063efbb50508651bc0a3c7628536a06778521ff93ae68d6b",
     "scope": "Original 131M pilot, separate 1.048B changed-schedule longer study, direct replication of the original schedule and schedule-isolation follow-up remain distinct; no complete pair or direct-replication final result assessed at the recorded intake."
-  },
-  "draft_note": "Public measurement summary. Internal source paths, worker IDs and receipt locations are omitted from this draft; the originals are retained privately."
+  }
 }
