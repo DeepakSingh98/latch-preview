@@ -443,3 +443,31 @@ html:not(.js) .stage-detail + .stage-detail { border-top: 1px solid var(--rule);
 /* Public preview status. */
 .draft-banner { border-bottom: 1px solid var(--rule); color: var(--mute); font: 0.9rem/1.5 var(--sans); }
 .draft-banner .wrap { padding-top: 0.65rem; padding-bottom: 0.65rem; }
+
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* Results: execution first, then examples of compiler breadth. */
+.results-page .article { max-width: none; }
+.results-page .lede { max-width: 38rem; }
+.results-page section > p { max-width: 48rem; }
+.results-page section { margin-top: 2.8rem; }
+.results-page .table-wrap { margin: 1.3rem 0 0.7rem; }
+.results-page table { width: 100%; table-layout: fixed; }
+.results-page table th, .results-page table td { vertical-align: top; }
+.result-highlights th:first-child { width: 25%; }
+.result-highlights th:nth-child(2) { width: 42%; }
+.result-highlights th:nth-child(3) { width: 33%; }
+.result-highlights td a { text-decoration: none; }
+.result-highlights td a:hover { text-decoration: underline; }
+.result-detail { display: block; margin-top: 0.25rem; color: var(--mute); font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+.compiler-examples th:first-child { width: 25%; }
+.results-page .result-footnote { font-size: 0.82rem; line-height: 1.55; color: var(--mute); margin-bottom: 1.2rem; }
+.result-sources { margin: 2rem 0 0; font-size: 0.9rem; }
+@media (max-width: 640px) {
+  .results-page table { table-layout: auto; }
+  .results-page table th, .results-page table td { width: auto; }
+  .results-page .stack td::before { display: none; }
+  .results-page .stack td { padding-left: 0; }
+  .results-page .stack tbody th { font-size: 1rem; width: 100%; }
+  .results-page .stack tbody tr { padding: 1rem 0; }
+  .result-detail { margin-top: 0.1rem; }
+}

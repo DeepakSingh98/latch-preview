@@ -6,15 +6,15 @@
 <title>Latch Walkthrough</title>
 <meta name="description" content="A visual walkthrough of training megakernels: one training update from first principles, conventional GPU execution, what Latch generates, what fusion can and cannot save, and measured case studies.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="assets/site.css?v=12">
+<link rel="stylesheet" href="assets/site.css?v=15">
 <script>document.documentElement.className += " js";</script>
 <script src="assets/config.js" defer></script>
 <script src="assets/reading.js" defer></script>
 <script src="assets/walkthrough.js?v=6" defer></script>
 <script>
   (function () {
-    var moved = { "case-tinymoe": "methodology.html#case-tinymoe", "case-smelt": "methodology.html#case-smelt",
-      "case-gradlev": "methodology.html#case-gradlev", "case-e2ttt": "methodology.html#case-e2ttt",
+    var moved = { "case-tinymoe": "sources.html#src-final", "case-smelt": "methodology.html#case-smelt",
+      "case-gradlev": "sources.html#src-final", "case-e2ttt": "methodology.html#case-e2ttt",
       "headline-scope": "sources.html#src-learning", "run-it": "get-started.html#run-it",
       "what-to-change": "get-started.html#what-to-change" };
     var h = location.hash.slice(1);
@@ -315,7 +315,7 @@
       </figure>
 
       <div class="prose">
-        <p>Our controls use compiled PyTorch. Some also use CUDA graphs. The <a href="methodology.html#measure">benchmark methods</a> identify the control for each workload.</p>
+        <p>Our controls use compiled PyTorch. Some also use CUDA graphs. The <a href="sources.html#src-final">benchmark methods</a> identify the control for each workload.</p>
         <p>TinyMoE’s published batch contains 16 microbatches of 8 × 1024 tokens. An optimizer update follows all 16 microbatches. Compiled PyTorch launched <strong>69,394 kernels per update</strong>. A reconstruction of the original Hugging Face Trainer setup launched 228,417. Latch launched one generated kernel per microbatch and 17 small scalar fills. <a href="sources.html#src-kernels">Source</a>.</p>
       </div>
     </section>
@@ -816,7 +816,7 @@
       <div class="prose">
 
         <h2 id="ev-h">Where the measurements are</h2>
-        <p>The <a href="methodology.html#results">results page</a> describes each benchmark’s model, control and timing method. It also covers <a href="methodology.html#learning">training to a target quality</a>. The code release will include runnable examples.</p>
+        <p>The <a href="methodology.html#execution">results page</a> describes each benchmark’s model, control and timing method. It also covers <a href="sources.html#src-ttq">training to a target quality</a>. The code release will include runnable examples.</p>
         <p class="moved" aria-hidden="true"><span id="case-tinymoe"></span><span id="case-smelt"></span><span id="case-gradlev"></span><span id="case-e2ttt"></span><span id="headline-scope"></span><span id="run-it"></span><span id="what-to-change"></span></p>
       </div>
     </section>

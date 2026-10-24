@@ -6,7 +6,7 @@
 <title>Latch — a compiler for training megakernels</title>
 <meta name="description" content="Latch is a compiler for generating training megakernels on NVIDIA H100 GPUs. Generate complete training updates and accelerate fine-grained learning.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="assets/site.css?v=12">
+<link rel="stylesheet" href="assets/site.css?v=15">
 <script src="assets/config.js" defer></script>
 <script src="assets/reading.js" defer></script>
 </head>
@@ -32,11 +32,13 @@
       <p class="meta"><span>October 2026</span></p>
       <h1>A compiler for training megakernels</h1>
 
-      <p class="lede">Latch generates training megakernels for NVIDIA H100 GPUs. The aim is to make new architectures and learning algorithms easier to explore. Researchers should be able to change a model without writing a new GPU implementation.</p>
+      <p class="lede">If you want to test a new way for models to learn, you shouldn’t have to become a kernel engineer first.</p>
 
-      <p>A training megakernel combines prediction, loss, backpropagation and the weight update in one GPU program. Latch generates that program from a model and its learning rule.</p>
+      <p>Well-funded labs such as <a href="https://x.com/flappyairplanes/status/2112955212612919318">Flapping Airplanes</a> have built their own megakernel frameworks to explore data-efficient learning. For researchers outside those labs, the systems work remains a serious barrier.</p>
 
-      <p>Latch is a research preview. It supports a limited set of models and learning rules today. Our goal is a general compiler for training megakernels.</p>
+      <p>Latch is a first step toward an open-source alternative. Write a supported model, loss and update rule in PyTorch, and get one generated GPU program for the forward pass, backward pass and optimizer.</p>
+
+      <p>Latch is a research preview for NVIDIA H100 GPUs. It supports a limited set of models and learning rules today. Our goal is a general compiler for training megakernels.</p>
 
       <h2 id="why">Why megakernels</h2>
 
@@ -68,7 +70,7 @@
 <span class="time-range" style="left:94.2622%;width:5.1172%"></span>
 </div></div>
 <div class="time-axis" aria-hidden="true"><span>0</span><span>10</span><span>20</span><span>30</span></div>
-<figcaption id="large-time-caption">Pretraining from random weights to validation loss 3.30. Batch 32 × 1,024 tokens. Three paired seeds on H100. Bars show mean training-update time; marks show the range across seeds. <a href="methodology.html#learning">Experiment and checks</a>.</figcaption>
+<figcaption id="large-time-caption">Pretraining from random weights to validation loss 3.30. Batch 32 × 1,024 tokens. Three paired seeds on H100. Bars show mean training-update time; marks show the range across seeds. <a href="sources.html#src-ttq">Experiment and checks</a>.</figcaption>
 </figure>
 
       <p>Both implementations learned at nearly the same rate per token. Latch reduced update time from about 140 ms to 80 ms. The model therefore reached the same quality sooner.</p>
@@ -86,10 +88,10 @@
 <div class="time-track" aria-hidden="true"><span class="time-fill" style="width:80.6500%"></span>
 </div></div>
 <div class="time-axis" aria-hidden="true"><span>0</span><span>20</span><span>40</span><span>60</span><span>80</span></div>
-<figcaption id="update-time-caption">Complete training updates at batch 2 × 512 tokens on one H100. The control uses compiled layers and grouped expert products. <a href="methodology.html#case-tinymoe">Benchmark</a> · <a href="methodology.html#small-batch">Training runs and numerical checks</a>.</figcaption>
+<figcaption id="update-time-caption">Complete training updates at batch 2 × 512 tokens on one H100. The control uses compiled layers and grouped expert products. <a href="sources.html#src-final">Benchmark</a> · <a href="sources.html#src-small-batch">Training runs and numerical checks</a>.</figcaption>
 </figure>
 
-      <p>The two results compare Latch with PyTorch at the <em>same</em> batch size. Faster small updates also let us explore learning recipes that make more frequent corrections. <a href="methodology.html#recipes">What we learned from changing the batch size</a>.</p>
+      <p>The two results compare Latch with PyTorch at the <em>same</em> batch size. Faster small updates also let us explore learning recipes that make more frequent corrections. <a href="sources.html#src-tuned">What we learned from changing the batch size</a>.</p>
 
       <h2 id="test-time-learning">Test-time learning</h2>
 
@@ -108,7 +110,7 @@
 <div class="time-track" aria-hidden="true"><span class="time-fill" style="width:94.7650%"></span>
 </div></div>
 <div class="time-axis" aria-hidden="true"><span>0</span><span>50</span><span>100</span><span>150</span><span>200</span></div>
-<figcaption id="gradlev-time-caption">One H100. A complete 1,024-token adaptation block includes the GPT-2 forward pass, staging, adaptation and read-back. <a href="methodology.html#case-gradlev">Experiment details</a>.</figcaption>
+<figcaption id="gradlev-time-caption">One H100. A complete 1,024-token adaptation block includes the GPT-2 forward pass, staging, adaptation and read-back. <a href="sources.html#src-final">Experiment details</a>.</figcaption>
 </figure>
 
       <h2 id="next">Explore Latch</h2>
@@ -120,6 +122,8 @@
       </ul>
 
       <p>We are interested in fine-grained experts, models with internal memory and learning rules built on frequent small updates. We welcome other ideas too.</p>
+
+      <p><a href="methodology.html">See the full results across models and learning rules.</a></p>
     </div>
   </article>
 </main>
